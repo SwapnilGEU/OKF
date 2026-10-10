@@ -1,0 +1,37 @@
+[
+  {
+    "document": "AGI.pdf",
+    "status": "success",
+    "pages": "155/155",
+    "characters": 538169,
+    "markdown_path": "c:\\Users\\Swapn\\OneDrive\\Documents\\GitHub\\OKF\\data\\processed\\markdown\\AGI.md"
+  },
+  {
+    "document": "Foundation_Models.pdf",
+    "status": "success",
+    "pages": "214/214",
+    "characters": 917015,
+    "markdown_path": "c:\\Users\\Swapn\\OneDrive\\Documents\\GitHub\\OKF\\data\\processed\\markdown\\Foundation_Models.md"
+  },
+  {
+    "document": "GPT-4.pdf",
+    "status": "success",
+    "pages": "100/100",
+    "characters": 309957,
+    "markdown_path": "c:\\Users\\Swapn\\OneDrive\\Documents\\GitHub\\OKF\\data\\processed\\markdown\\GPT-4.md"
+  },
+  {
+    "document": "Holistic_Eval.pdf",
+    "status": "success",
+    "pages": "162/162",
+    "characters": 700387,
+    "markdown_path": "c:\\Users\\Swapn\\OneDrive\\Documents\\GitHub\\OKF\\data\\processed\\markdown\\Holistic_Eval.md"
+  },
+  {
+    "document": "LLMs.pdf",
+    "status": "success",
+    "pages": "144/144",
+    "characters": 916121,
+    "markdown_path": "c:\\Users\\Swapn\\OneDrive\\Documents\\GitHub\\OKF\\data\\processed\\markdown\\LLMs.md"
+  }
+]
