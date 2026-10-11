@@ -1,0 +1,14 @@
+# secrets
+.env
+
+# python / jupyter
+__pycache__/
+.ipynb_checkpoints/
+
+# tool caches
+.deepeval/
+
+# generated data (rebuildable from data/raw)
+data/processed/
+data/index/
+artifacts/
