@@ -12,3 +12,7 @@ __pycache__/
 data/processed/
 data/index/
 artifacts/
+
+# OKF bundle (built separately) and its zip copy
+OKF_Bundle/
+OKF_Bundle.zip
