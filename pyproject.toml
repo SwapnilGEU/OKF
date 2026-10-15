@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "okf"
+version = "0.1.0"
+description = "Question answering over the OKF bundle: hybrid retrieval (BM25 + Qdrant + links) and a local or API model"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2",
+    "python-dotenv",
+    "pyyaml",
+    "qdrant-client>=1.12",
+    "requests",
+]
+
+[tool.setuptools]
+packages = ["okf"]
