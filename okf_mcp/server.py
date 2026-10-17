@@ -17,7 +17,11 @@ import sys
 from functools import lru_cache
 from typing import Annotated
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP          # mcp 1.x (what langchain-mcp-adapters / LangGraph need)
+except ModuleNotFoundError as exc:                  # mcp 2.x renamed it
+    raise SystemExit('This server needs the MCP library 1.x, but a 2.x version is installed.\n'
+                     'Fix:  pip install -e ".[mcp]"   (or: pip install "mcp[cli]>=1.20,<2")') from exc
 from pydantic import BaseModel, Field
 
 from okf import OKF, Passage, Source
