@@ -35,16 +35,19 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 
 from .a2a_client import A2AClient, langgraph_card_url
+from .report import SEPARATOR, format_conversation
 from .db import insert_qa_log
 from .graph import looks_like_followup, previous_turn, text_of
 from .state import AgentState
 
 ROUTER_NAME = "okf_router"
 SHORT_FOLLOWUP = 6
-HEADINGS = {"okf_agent": "From the bundle", "paper_scout": "On arXiv"}
+HEADINGS = {"okf_agent": "From the bundle", "paper_scout": "On arXiv", "report_agent": "Report"}
+NEEDS_CONVERSATION = {"report_agent"}     # agents that get the conversation so far along with the message
 
 GREETING_RE = re.compile(r"^\s*(hi+|hello|hey|hiya|yo|good (morning|afternoon|evening)|thanks?|thank you|ok(ay)?|cool|"
                          r"help|who are you|what can you do|what do you do|how does this work)\b[\s!?.]*$", re.I)
+REPORT_WORDS_RE = re.compile(r"\b(reports?|summari[sz]e|export|save)\b.*\b(conversation|chat|this|discussion|so far|reports?)\b", re.I)
 SCOUT_WORDS_RE = re.compile(r"\b(papers?|arxiv|preprints?|publications?|literature|recent|latest|newer|newest|"
                             r"new work|state of the art|sota)\b", re.I)
 
@@ -63,6 +66,8 @@ Examples:
 "What score did GPT-4 get on the bar exam?" -> {{"agents": ["okf_agent"]}}
 "Find recent papers on mixture of experts" -> {{"agents": ["paper_scout"]}}
 "What does the bundle say about RLHF, and are there newer papers on it?" -> {{"agents": ["okf_agent", "paper_scout"], "parts": {{"okf_agent": "What does the bundle say about RLHF?", "paper_scout": "Find newer papers on RLHF"}}}}
+"Write a report of our conversation" -> {{"agents": ["report_agent"]}}
+"List my reports" -> {{"agents": ["report_agent"]}}
 "Write me a poem about cats" -> {{"agents": []}}
 
 If a previous message is shown: when the new message continues it ("And GPT-3.5?", "only ones since 2025",
@@ -136,8 +141,24 @@ def parse_parts(text: str, agents: list[str]) -> dict:
 
 
 def keyword_route(question: str, allowed: list[str]) -> list[str]:
+    if REPORT_WORDS_RE.search(question) and "report_agent" in allowed:
+        return ["report_agent"]
     want = "paper_scout" if SCOUT_WORDS_RE.search(question) else "okf_agent"
     return [want] if want in allowed else allowed[:1]
+
+
+def conversation_so_far(messages) -> list[dict]:
+    """The router's chat as [{"q", "a"}], skipping direct replies (greetings) and earlier report turns."""
+    turns, question = [], None
+    for m in messages:
+        if m.type == "human":
+            question = text_of(m)
+        elif m.type == "ai" and question is not None:
+            route = (m.additional_kwargs or {}).get("route") or []
+            if route and not set(route) <= NEEDS_CONVERSATION:
+                turns.append({"q": question, "a": text_of(m)})
+            question = None
+    return turns
 
 
 def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name: str = ROUTER_NAME) -> StateGraph:
@@ -169,6 +190,9 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
             else:
                 chosen, by = keyword_route(question, allowed), "rule-keywords"
         followup = bool(last) and chosen == last and by != "rule-greeting"
+        for agent in set(chosen) & NEEDS_CONVERSATION:          # e.g. the report agent: send it the chat so far
+            turns = conversation_so_far(state["messages"][:-1])
+            parts[agent] = f"{question}\n{SEPARATOR}\n{format_conversation(turns)}" if turns else question
         return {"question": question, "route": chosen, "route_by": by, "followup": followup, "parts": parts,
                 "search_query": f"-> {', '.join(chosen) or 'direct'} ({by})",
                 "replies": None, "bad_citations": [], "sources": [], "passages": [], "log_id": None, "llm": llm_info,
@@ -200,7 +224,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
     def direct(state: RouterState) -> dict:
         lines = [f"- **{name}**: {c.description}" for name, c in directory.clients().items()]
         if GREETING_RE.match(state["question"]):
-            intro = "Hi! I can help with two kinds of questions:"
+            intro = "Hi! Here's what I can do:"
         else:
             intro = "That's outside what I can do. I can help with:"
         return {"answer": intro + "\n" + "\n".join(lines) + "\n\nAsk a question about the papers, or ask me to find papers on a topic."}
@@ -251,9 +275,10 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
 
 def default_directory() -> AgentDirectory:
     base = os.getenv("OKF_AGENT_URL", "http://127.0.0.1:2024")
-    names = [n.strip() for n in os.getenv("OKF_ROUTER_AGENTS", "okf_agent,paper_scout").split(",") if n.strip()]
+    names = [n.strip() for n in os.getenv("OKF_ROUTER_AGENTS", "okf_agent,paper_scout,report_agent").split(",")
+             if n.strip()]
     return AgentDirectory(base, names)
 
 
 __all__ = ["build_router_graph", "AgentDirectory", "default_directory", "ROUTER_NAME", "RouterState",
-           "parse_route", "parse_parts", "keyword_route"]
+           "parse_route", "parse_parts", "keyword_route", "conversation_so_far"]

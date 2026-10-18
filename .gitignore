@@ -22,3 +22,6 @@ OKF_Bundle.zip
 
 # langgraph dev: the agent server's local memory
 .langgraph_api/
+
+# report_agent output (step 15)
+reports/

@@ -3,6 +3,9 @@
 Read from .env (same file as the okf package):
   OKF_MCP_URL        default http://127.0.0.1:8000/mcp   (the server from 10_mcp_server)
   OKF_ARXIV_MCP_URL  default http://127.0.0.1:8001/mcp   (the third-party arXiv server, step 13)
+  OKF_REPORTS_DIR    default <project>/reports            (the ONLY folder the filesystem server may touch, step 15)
+  OKF_FS_MCP_COMMAND default: npx -y @modelcontextprotocol/server-filesystem@2026.8.31
+                     (set it to e.g. mcp-server-filesystem after `npm install -g` to skip npx)
   OKF_POSTGRES_URL   full address, e.g. postgresql://postgres:pw@localhost:5432/OKF
      or PG_HOST, PG_PORT, PG_DBNAME, PG_USER, PG_PASSWORD (used when OKF_POSTGRES_URL isn't set)
 The model, num_ctx and the rest come from okf.Settings, so the agent answers with exactly
@@ -17,6 +20,9 @@ from dataclasses import dataclass
 from urllib.parse import quote
 
 from okf import Settings
+from okf.config import find_project_root
+
+FS_MCP_PACKAGE = "@modelcontextprotocol/server-filesystem@2026.8.31"   # pinned: the official reference server
 
 
 def postgres_url() -> str:
@@ -34,13 +40,22 @@ class AgentConfig:
     mcp_url: str
     postgres_url: str
     arxiv_mcp_url: str = "http://127.0.0.1:8001/mcp"
+    reports_dir: str = "reports"
 
     @classmethod
     def load(cls, **okf_overrides) -> "AgentConfig":
         s = Settings.load(**okf_overrides)          # also reads .env
         return cls(okf=s, mcp_url=os.getenv("OKF_MCP_URL", "http://127.0.0.1:8000/mcp"),
                    postgres_url=postgres_url(),
-                   arxiv_mcp_url=os.getenv("OKF_ARXIV_MCP_URL", "http://127.0.0.1:8001/mcp"))
+                   arxiv_mcp_url=os.getenv("OKF_ARXIV_MCP_URL", "http://127.0.0.1:8001/mcp"),
+                   reports_dir=os.getenv("OKF_REPORTS_DIR") or str(find_project_root() / "reports"))
+
+    def fs_mcp_connection(self) -> dict:
+        """How to start the filesystem MCP server: a child process over stdio, limited to reports_dir."""
+        command = os.getenv("OKF_FS_MCP_COMMAND", "").split()
+        if not command:
+            command = ["npx", "-y", FS_MCP_PACKAGE]
+        return {"command": command[0], "args": [*command[1:], self.reports_dir], "transport": "stdio"}
 
     def postgres_url_safe(self) -> str:
         """The address with the password hidden, for printing."""

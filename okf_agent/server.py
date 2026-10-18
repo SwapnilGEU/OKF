@@ -7,6 +7,7 @@
 Three graphs, three A2A agents:
     graph         okf_agent    answers from the bundle         (OKF MCP server, :8000)
     scout_graph   paper_scout  finds papers on arXiv            (arXiv MCP server, :8001)
+    report_graph  report_agent writes a conversation into reports/ (filesystem MCP server, stdio child process)
     router_graph  okf_router   the entry point: sends each message to the agent(s) above over A2A
 
 okf_agent is the same graph as OKFAgent (prepare → search → answer → check → log), with two differences:
@@ -21,6 +22,7 @@ okf_agent is the same graph as OKFAgent (prepare → search → answer → check
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from collections.abc import Mapping
 
 import psycopg
@@ -30,7 +32,8 @@ from okf.llm import make_llm
 from .config import AgentConfig
 from .db import ensure_qa_log
 from .graph import build_graph
-from .mcp_tools import load_tools
+from .mcp_tools import PersistentMCP, load_tools
+from .report import REPORT_NAME, build_report_graph
 from .router import ROUTER_NAME, build_router_graph, default_directory
 from .scout import SCOUT_NAME, build_scout_graph
 from .tracing import traced_llm
@@ -88,6 +91,11 @@ graph.name = "okf_agent"
 ARXIV_HINT = "set TRANSPORT=http&& set PORT=8001&& uvx arxiv-mcp-server@0.8.2"
 scout_graph = build_scout_graph(LazyTools(CONFIG.arxiv_mcp_url, "arxiv", ARXIV_HINT), LLM, LOG).compile()
 scout_graph.name = SCOUT_NAME
+
+Path(CONFIG.reports_dir).mkdir(parents=True, exist_ok=True)
+FILES = PersistentMCP("files", CONFIG.fs_mcp_connection())   # started on the first report, then kept alive
+report_graph = build_report_graph(FILES, LLM, CONFIG.reports_dir, LOG).compile()
+report_graph.name = REPORT_NAME
 
 router_graph = build_router_graph(default_directory(), LLM, LOG).compile()
 router_graph.name = ROUTER_NAME
