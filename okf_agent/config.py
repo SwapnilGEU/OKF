@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -32,6 +33,22 @@ def postgres_url() -> str:
     db, user = os.getenv("PG_DBNAME", "OKF"), os.getenv("PG_USER", "postgres")
     password = quote(os.getenv("PG_PASSWORD", ""), safe="")      # escape @ : / etc. in the password
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
+def find_npx() -> str | None:
+    """Full path of npx. On the PATH if possible; otherwise the usual Windows install folders, because a
+    terminal, VS Code or server window opened BEFORE Node.js was installed still has the old PATH."""
+    found = shutil.which("npx")
+    if found:
+        return found
+    if os.name == "nt":
+        for folder in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", ""),
+                       os.environ.get("LOCALAPPDATA", "") + r"\Programs", os.environ.get("APPDATA", "")):
+            for sub in ("nodejs", "npm"):
+                candidate = os.path.join(folder, sub, "npx.cmd")
+                if folder and os.path.isfile(candidate):
+                    return candidate
+    return None
 
 
 @dataclass(frozen=True)
@@ -54,7 +71,7 @@ class AgentConfig:
         """How to start the filesystem MCP server: a child process over stdio, limited to reports_dir."""
         command = os.getenv("OKF_FS_MCP_COMMAND", "").split()
         if not command:
-            command = ["npx", "-y", FS_MCP_PACKAGE]
+            command = [find_npx() or "npx", "-y", FS_MCP_PACKAGE]
         return {"command": command[0], "args": [*command[1:], self.reports_dir], "transport": "stdio"}
 
     def postgres_url_safe(self) -> str:
