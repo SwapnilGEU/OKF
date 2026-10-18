@@ -4,9 +4,10 @@
         A2A endpoint   POST /a2a/<assistant id>
         agent card     GET  /.well-known/agent-card.json?assistant_id=<assistant id>
 
-Two graphs, two A2A agents:
-    graph        okf_agent    answers from the bundle         (OKF MCP server, :8000)
-    scout_graph  paper_scout  finds papers on arXiv            (arXiv MCP server, :8001)
+Three graphs, three A2A agents:
+    graph         okf_agent    answers from the bundle         (OKF MCP server, :8000)
+    scout_graph   paper_scout  finds papers on arXiv            (arXiv MCP server, :8001)
+    router_graph  okf_router   the entry point: sends each message to the agent(s) above over A2A
 
 okf_agent is the same graph as OKFAgent (prepare → search → answer → check → log), with two differences:
 
@@ -30,6 +31,7 @@ from .config import AgentConfig
 from .db import ensure_qa_log
 from .graph import build_graph
 from .mcp_tools import load_tools
+from .router import ROUTER_NAME, build_router_graph, default_directory
 from .scout import SCOUT_NAME, build_scout_graph
 from .tracing import traced_llm
 
@@ -86,3 +88,6 @@ graph.name = "okf_agent"
 ARXIV_HINT = "set TRANSPORT=http&& set PORT=8001&& uvx arxiv-mcp-server@0.8.2"
 scout_graph = build_scout_graph(LazyTools(CONFIG.arxiv_mcp_url, "arxiv", ARXIV_HINT), LLM, LOG).compile()
 scout_graph.name = SCOUT_NAME
+
+router_graph = build_router_graph(default_directory(), LLM, LOG).compile()
+router_graph.name = ROUTER_NAME

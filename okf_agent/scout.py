@@ -32,6 +32,7 @@ from .state import AgentState
 
 SCOUT_NAME = "paper_scout"
 MAX_RESULTS = 6                 # papers shown to qwen
+SHORT_FOLLOWUP = 6              # words: a message this short in an ongoing chat is a refinement
 ABSTRACT_CHARS = 1200           # per paper: 6 × 1,200 chars keeps the prompt ~2,500 tokens
 
 PLAN_PROMPT = """You turn a request for research papers into an arXiv search.
@@ -42,6 +43,8 @@ keywords: 1 to 3 short technical phrases (1-4 words each) that a matching paper'
   Leave out generic words such as paper, papers, research, recent, latest, new, study, survey of.
 sort_by: "date" only if the user asks for recent, latest or new papers; otherwise "relevance".
 date_from: "YYYY-MM-DD" only if the user names a start date or year (e.g. "since 2024" -> "2024-01-01"); otherwise null.
+If an earlier request is shown, the new message either refines it (keep the earlier keywords and change only what
+it asks for, e.g. a date or "newest") or starts a new topic (then use only the new topic).
 Today is {today}."""
 
 SUMMARY_PROMPT = """You are a paper scout. From the arXiv search results below, pick the papers that best match the request:
@@ -125,11 +128,16 @@ def build_scout_graph(tools, llm, log_conn=None, agent_name: str = SCOUT_NAME) -
     def plan(state: ScoutState) -> dict:
         question = text_of(state["messages"][-1]).strip()
         prev_q, _ = previous_turn(state["messages"])
-        followup = prev_q is not None and looks_like_followup(question)
-        request = f"Earlier request: {prev_q}\nNow: {question}" if followup else question
+        # In a scout chat, short messages are refinements: "only ones since 2025", "newer ones please".
+        followup = prev_q is not None and (looks_like_followup(question) or len(question.split()) <= SHORT_FOLLOWUP)
+        prev_keywords = state.get("keywords") or []        # still the previous turn's: state is kept per thread
+        request = (f"Earlier request: {prev_q}\nEarlier keywords: {prev_keywords}\nNow: {question}"
+                   if followup else question)
         t0 = time.perf_counter()
         reply = llm.complete(PLAN_PROMPT.format(today=date.today().isoformat()), request)
         p = parse_plan(reply.text, question)
+        if followup and not p["from_llm"] and prev_keywords:   # broken JSON on a follow-up: keep the old topic
+            p["keywords"] = prev_keywords
         args = {"query": arxiv_query(p["keywords"]), "max_results": MAX_RESULTS, "abstract_mode": "full",
                 "sort_by": p["sort_by"]}
         if p["date_from"]:

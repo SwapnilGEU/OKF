@@ -11,6 +11,10 @@
     "paper_scout": {
       "path": "okf_agent.server:scout_graph",
       "description": "Finds research papers on arXiv for a topic, including recent ones that are not in the OKF bundle. Returns up to 5 papers with [arXiv:id] citations, a one-line reason each, and links. Understands 'recent/latest' and 'since <year>'."
+    },
+    "okf_router": {
+      "path": "okf_agent.server:router_graph",
+      "description": "Entry point for the OKF assistant. Sends each message to the right agent over A2A: questions about the five papers in the OKF bundle go to okf_agent, requests to find papers go to paper_scout, questions that need both go to both. Answers greetings itself."
     }
   },
   "env": ".env"
