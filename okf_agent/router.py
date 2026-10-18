@@ -11,7 +11,7 @@ route     decides, in this order:
                previous message and who answered it, so it can tell "And GPT-3.5?" (same agent)
                from a new topic. (A word rule can't: "...newer papers on it?" has "it" but is new.)
             3. qwen's reply unusable          → short follow-up? same agent as last time : keyword rule
-ask_<x>   sends the message to agent x over A2A. For a follow-up (same agent(s) as last turn) it reuses that
+ask_<x>   sends the message (or, when several agents are asked, only its part) to agent x over A2A. For a follow-up (same agent(s) as last turn) it reuses that
           agent's A2A conversation (contextId kept in the state), so the agent's own memory works;
           a new request starts a fresh conversation with the agent.
 direct    a code-written reply: what the system can do, built from the agents' cards
@@ -55,13 +55,14 @@ Assistants:
 
 Reply with JSON only: {{"agents": [...]}}
 - Usually exactly one name.
-- Both names only if the message clearly asks for both things.
+- Both names only if the message clearly asks for both things. Then also split the message:
+  {{"agents": [...], "parts": {{"<name>": "<the part of the message for that assistant, as a full question>"}}}}
 - [] if no assistant fits (greetings, small talk, unrelated tasks like poems or code).
 
 Examples:
 "What score did GPT-4 get on the bar exam?" -> {{"agents": ["okf_agent"]}}
 "Find recent papers on mixture of experts" -> {{"agents": ["paper_scout"]}}
-"What does the bundle say about RLHF, and are there newer papers on it?" -> {{"agents": ["okf_agent", "paper_scout"]}}
+"What does the bundle say about RLHF, and are there newer papers on it?" -> {{"agents": ["okf_agent", "paper_scout"], "parts": {{"okf_agent": "What does the bundle say about RLHF?", "paper_scout": "Find newer papers on RLHF"}}}}
 "Write me a poem about cats" -> {{"agents": []}}
 
 If a previous message is shown: when the new message continues it ("And GPT-3.5?", "only ones since 2025",
@@ -78,6 +79,7 @@ def merge_dict(old: dict | None, new: dict | None) -> dict:
 
 class RouterState(AgentState, total=False):
     route: list[str]                                   # agents chosen this turn ([] = direct)
+    parts: dict                                        # {agent: its part of the message} when several agents
     route_by: str                                      # rule-greeting / followup / llm / rule-keywords
     last_route: list[str]                              # previous turn's route (kept by the server's memory)
     contexts: Annotated[dict, merge_dict]              # {agent: A2A contextId} — one conversation per agent
@@ -121,6 +123,18 @@ def parse_route(text: str, allowed: list[str]) -> list[str] | None:
     return picked if (picked or agents == []) else None
 
 
+def parse_parts(text: str, agents: list[str]) -> dict:
+    """For a message sent to several agents: {agent: its own part}. Missing or odd parts → the full message."""
+    match = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        parts = json.loads(match.group(0)).get("parts") if match else None
+    except (ValueError, AttributeError):
+        parts = None
+    if not isinstance(parts, dict):
+        return {}
+    return {a: parts[a].strip() for a in agents if isinstance(parts.get(a), str) and len(parts[a].strip()) > 3}
+
+
 def keyword_route(question: str, allowed: list[str]) -> list[str]:
     want = "paper_scout" if SCOUT_WORDS_RE.search(question) else "okf_agent"
     return [want] if want in allowed else allowed[:1]
@@ -135,6 +149,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         last = state.get("last_route")
         llm_info = {"model": llm.name}
         prev_q, _ = previous_turn(state["messages"])
+        parts = {}
         if GREETING_RE.match(question):
             chosen, by = [], "rule-greeting"
         else:
@@ -147,12 +162,14 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
             parsed = parse_route(reply.text, allowed)
             if parsed is not None:
                 chosen, by = parsed, "llm"
+                if len(chosen) > 1:
+                    parts = parse_parts(reply.text, chosen)   # each agent gets only its part
             elif last and (looks_like_followup(question) or len(question.split()) <= SHORT_FOLLOWUP):
                 chosen, by = [a for a in last if a in allowed], "rule-followup"
             else:
                 chosen, by = keyword_route(question, allowed), "rule-keywords"
         followup = bool(last) and chosen == last and by != "rule-greeting"
-        return {"question": question, "route": chosen, "route_by": by, "followup": followup,
+        return {"question": question, "route": chosen, "route_by": by, "followup": followup, "parts": parts,
                 "search_query": f"-> {', '.join(chosen) or 'direct'} ({by})",
                 "replies": None, "bad_citations": [], "sources": [], "passages": [], "log_id": None, "llm": llm_info,
                 "timings": {"started": time.time(), "route_ms": round((time.perf_counter() - t0) * 1000, 1)}}
@@ -169,7 +186,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
                 # Continue the agent's conversation only for a follow-up of its last turn. A new request
                 # starts a fresh one, so the agent's own follow-up rule can't glue it to an old question.
                 context_id = state.get("contexts", {}).get(agent) if state["followup"] else None
-                r = client.send(state["question"], context_id=context_id)
+                r = client.send(state.get("parts", {}).get(agent) or state["question"], context_id=context_id)
                 reply = {"text": r.text if r.ok else f"{agent} couldn't answer: {r.text}", "state": r.state}
                 contexts = {agent: r.context_id}
             except Exception as exc:
@@ -239,4 +256,4 @@ def default_directory() -> AgentDirectory:
 
 
 __all__ = ["build_router_graph", "AgentDirectory", "default_directory", "ROUTER_NAME", "RouterState",
-           "parse_route", "keyword_route"]
+           "parse_route", "parse_parts", "keyword_route"]
