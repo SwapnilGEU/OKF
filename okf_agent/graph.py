@@ -39,14 +39,24 @@ def looks_like_followup(question: str) -> bool:
     return short and bool(FOLLOWUP_OPENERS.search(question) or FOLLOWUP_POINTERS.search(question))
 
 
+def text_of(message) -> str:
+    """A message's text. Messages typed in Python carry a string; messages that arrive over A2A
+    can carry a list of parts like [{"type": "text", "text": "..."}]."""
+    content = message.content
+    if isinstance(content, str):
+        return content
+    return "\n".join(p if isinstance(p, str) else p.get("text", "") for p in content
+                     if isinstance(p, str) or p.get("type", "text") == "text")
+
+
 def previous_turn(messages) -> tuple[str | None, str | None]:
     """The last question and answer BEFORE the current question (the current one is messages[-1])."""
     q = a = None
     for m in reversed(messages[:-1]):
         if isinstance(m, AIMessage) and a is None and q is None:
-            a = m.content
+            a = text_of(m)
         elif isinstance(m, HumanMessage):
-            q = m.content
+            q = text_of(m)
             break
     return q, a
 
@@ -56,7 +66,7 @@ def build_graph(tools: dict, llm, log_conn=None, agent_name: str = AGENT_NAME) -
     `log_conn` a psycopg connection for qa_log (None = don't log)."""
 
     def prepare(state: AgentState) -> dict:
-        question = state["messages"][-1].content.strip()
+        question = text_of(state["messages"][-1]).strip()
         prev_q, prev_a = previous_turn(state["messages"])
         followup = prev_q is not None and looks_like_followup(question)
         return {"question": question, "followup": followup,

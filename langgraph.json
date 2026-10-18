@@ -1,0 +1,17 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "okf_agent": {
+      "path": "okf_agent.server:graph",
+      "description": "Answers questions about the OKF bundle (GPT-4 technical report and related papers) from retrieved passages, with [concept id] citations. Replies 'The bundle does not contain this.' when the answer isn't in the bundle."
+    },
+    "paper_scout": {
+      "path": "okf_agent.server:scout_graph",
+      "description": "Finds research papers on arXiv for a topic, including recent ones that are not in the OKF bundle. Returns up to 5 papers with [arXiv:id] citations, a one-line reason each, and links. Understands 'recent/latest' and 'since <year>'."
+    }
+  },
+  "env": ".env"
+}

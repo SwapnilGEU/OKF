@@ -2,6 +2,7 @@
 
 Read from .env (same file as the okf package):
   OKF_MCP_URL        default http://127.0.0.1:8000/mcp   (the server from 10_mcp_server)
+  OKF_ARXIV_MCP_URL  default http://127.0.0.1:8001/mcp   (the third-party arXiv server, step 13)
   OKF_POSTGRES_URL   full address, e.g. postgresql://postgres:pw@localhost:5432/OKF
      or PG_HOST, PG_PORT, PG_DBNAME, PG_USER, PG_PASSWORD (used when OKF_POSTGRES_URL isn't set)
 The model, num_ctx and the rest come from okf.Settings, so the agent answers with exactly
@@ -32,12 +33,14 @@ class AgentConfig:
     okf: Settings                 # model, num_ctx, context size ... (from the okf package)
     mcp_url: str
     postgres_url: str
+    arxiv_mcp_url: str = "http://127.0.0.1:8001/mcp"
 
     @classmethod
     def load(cls, **okf_overrides) -> "AgentConfig":
         s = Settings.load(**okf_overrides)          # also reads .env
         return cls(okf=s, mcp_url=os.getenv("OKF_MCP_URL", "http://127.0.0.1:8000/mcp"),
-                   postgres_url=postgres_url())
+                   postgres_url=postgres_url(),
+                   arxiv_mcp_url=os.getenv("OKF_ARXIV_MCP_URL", "http://127.0.0.1:8001/mcp"))
 
     def postgres_url_safe(self) -> str:
         """The address with the password hidden, for printing."""

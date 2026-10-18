@@ -19,3 +19,6 @@ OKF_Bundle.zip
 
 # pip install -e . metadata
 *.egg-info/
+
+# langgraph dev: the agent server's local memory
+.langgraph_api/

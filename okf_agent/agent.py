@@ -26,6 +26,7 @@ from .db import ensure_qa_log
 from .graph import AGENT_NAME, build_graph
 from .mcp_tools import load_tools
 from .state import AgentReply
+from .tracing import flush, traced_llm, tracing_status
 
 
 class OKFAgent:
@@ -33,6 +34,7 @@ class OKFAgent:
         self.config, self.graph, self.tools = config, graph, tools
         self._log_conn, self._saver_cm = log_conn, saver_cm
         self._pool = ThreadPoolExecutor(max_workers=1)     # runs the graph off Jupyter's event-loop thread
+        self.tracing = tracing_status()
 
     @classmethod
     def start(cls, config: AgentConfig | None = None, memory: bool = True, log: bool = True) -> "OKFAgent":
@@ -41,7 +43,7 @@ class OKFAgent:
         missing = {"search_okf"} - set(tools)
         if missing:
             raise RuntimeError(f"the MCP server at {config.mcp_url} doesn't offer {missing}")
-        llm = make_llm(config.okf)
+        llm = traced_llm(make_llm(config.okf))          # an LLM run in LangSmith when tracing is on
 
         log_conn = None
         if log:
@@ -61,8 +63,14 @@ class OKFAgent:
     def _run(self, fn, *args):
         return self._pool.submit(fn, *args).result()
 
+    @staticmethod
+    def _config(thread_id: str) -> dict:
+        """thread_id = which conversation (memory). run_name/tags/metadata only label the run in LangSmith."""
+        return {"configurable": {"thread_id": thread_id}, "run_name": AGENT_NAME,
+                "tags": [AGENT_NAME], "metadata": {"thread_id": thread_id, "agent": AGENT_NAME}}
+
     def ask(self, question: str, thread_id: str = "default") -> AgentReply:
-        cfg = {"configurable": {"thread_id": thread_id}}
+        cfg = self._config(thread_id)
         state = self._run(self.graph.invoke, {"messages": [HumanMessage(question)]}, cfg)
         return AgentReply(thread_id=thread_id, question=state["question"], answer=state["answer"],
                           refused=state["refused"], sources=state.get("sources", []),
@@ -73,7 +81,7 @@ class OKFAgent:
 
     def steps(self, question: str, thread_id: str = "default") -> list[dict]:
         """Run one turn node by node and report what each node changed (stream_mode='updates')."""
-        cfg = {"configurable": {"thread_id": thread_id}}
+        cfg = self._config(thread_id)
 
         def go():
             out, last = [], time.perf_counter()
@@ -95,6 +103,7 @@ class OKFAgent:
         return self.graph.get_graph().draw_mermaid()
 
     def close(self):
+        flush()                                            # send any LangSmith traces still queued
         self._pool.shutdown(wait=True)
         if self._saver_cm is not None:
             self._saver_cm.__exit__(None, None, None)
