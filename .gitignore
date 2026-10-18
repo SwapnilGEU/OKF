@@ -16,3 +16,6 @@ artifacts/
 # OKF bundle (built separately) and its zip copy
 OKF_Bundle/
 OKF_Bundle.zip
+
+# pip install -e . metadata
+*.egg-info/

@@ -98,6 +98,15 @@ def main():
         except Exception as exc:
             print(f"warm-up failed ({type(exc).__name__}: {exc}); ask_okf will fail until the model is reachable", file=sys.stderr)
     print("ready", file=sys.stderr, flush=True)
+    if sys.platform == "win32" and not args.stdio:
+        # Windows' default asyncio loop (Proactor) logs a harmless "ConnectionResetError [WinError 10054]"
+        # traceback every time a client closes its connection after a tool call. The HTTP server
+        # doesn't start subprocesses, so the simpler Selector loop works and stays quiet.
+        import asyncio
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     if args.stdio:
         mcp.run(transport="stdio")
     else:

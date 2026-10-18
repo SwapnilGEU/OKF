@@ -20,6 +20,12 @@ mcp = [
     "mcp[cli]>=1.20,<2",              # 1.x: what langchain-mcp-adapters (LangGraph) works with
     "langchain-mcp-adapters>=0.1",    # stage 3: the agents load the MCP tools through this
 ]
+agent = [
+    "okf[mcp]",
+    "langgraph>=1.0",
+    "langgraph-checkpoint-postgres>=2",   # chat memory in Postgres
+    "psycopg[binary]>=3.2",               # Postgres driver (qa_log + checkpointer)
+]
 
 [tool.setuptools]
-packages = ["okf", "okf_mcp"]
+packages = ["okf", "okf_mcp", "okf_agent"]
