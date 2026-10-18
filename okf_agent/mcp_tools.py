@@ -12,7 +12,9 @@ import asyncio
 import json
 import logging
 import sys
+import tempfile
 import threading
+from pathlib import Path
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
@@ -91,6 +93,7 @@ class PersistentMCP:
         self.name, self.connection = name, connection
         self._loop = self._cm = None
         self._tools: dict | None = None
+        self.log_path: Path | None = None              # where a stdio server's own log lines go
         self._lock = threading.Lock()
 
     def _new_loop(self):
@@ -99,15 +102,35 @@ class PersistentMCP:
         return asyncio.new_event_loop()
 
     async def _open(self) -> dict:
+        from contextlib import AsyncExitStack
+
         from langchain_mcp_adapters.tools import load_mcp_tools
-        client = MultiServerMCPClient({self.name: self.connection})
-        self._cm = client.session(self.name)            # starts the child process + MCP handshake
-        session = await self._cm.__aenter__()
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        self._cm = AsyncExitStack()
+        if self.connection.get("transport") == "stdio":
+            errlog = self._cm.enter_context(self._errlog)         # opened in tools(), outside the event loop
+            params = StdioServerParameters(command=self.connection["command"], args=self.connection.get("args", []),
+                                           env=self.connection.get("env"))
+            read, write = await self._cm.enter_async_context(stdio_client(params, errlog=errlog))  # starts the child
+            session = await self._cm.enter_async_context(ClientSession(read, write))
+            await session.initialize()                                                             # MCP handshake
+        else:
+            client = MultiServerMCPClient({self.name: self.connection})
+            session = await self._cm.enter_async_context(client.session(self.name))
         return {t.name: t for t in await load_mcp_tools(session)}
 
     def tools(self, timeout: float = 300) -> dict:
         with self._lock:
             if self._tools is None:
+                if self.connection.get("transport") == "stdio":
+                    # The child process writes its log lines to stderr. By default that's Python's sys.stderr,
+                    # which inside Jupyter is not a real file, and Windows refuses it ("UnsupportedOperation:
+                    # fileno"). So the child gets a real log file. Opened HERE, before the event loop, because
+                    # file calls inside a loop are "blocking calls" that `langgraph dev` refuses.
+                    self.log_path = Path(tempfile.gettempdir()) / f"okf-mcp-{self.name}.log"
+                    self._errlog = open(self.log_path, "a", encoding="utf-8")
                 self._loop = self._new_loop()
                 threading.Thread(target=self._loop.run_forever, name=f"mcp-{self.name}", daemon=True).start()
                 try:
@@ -130,7 +153,13 @@ class PersistentMCP:
         return parse_tool_result(raw)
 
     def reset(self):
+        """Close the session (this ends a stdio child process) and stop the background loop."""
         with self._lock:
             if self._loop is not None:
+                if self._cm is not None:
+                    try:
+                        asyncio.run_coroutine_threadsafe(self._cm.aclose(), self._loop).result(10)
+                    except Exception:
+                        pass                                # already dead: nothing to close
                 self._loop.call_soon_threadsafe(self._loop.stop)
             self._loop = self._cm = self._tools = None
