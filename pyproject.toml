@@ -22,7 +22,7 @@ mcp = [
 ]
 agent = [
     "okf[mcp]",
-    "langgraph>=1.0",
+    "langgraph>=1.2.15",
     "langgraph-checkpoint-postgres>=2",   # chat memory in Postgres
     "psycopg[binary]>=3.2",               # Postgres driver (qa_log + checkpointer)
     "langsmith>=0.3",                     # optional tracing (off unless LANGSMITH_* is set)
