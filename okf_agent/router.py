@@ -48,6 +48,7 @@ NEEDS_CONVERSATION = {"report_agent"}     # agents that get the conversation so 
 GREETING_RE = re.compile(r"^\s*(hi+|hello|hey|hiya|yo|good (morning|afternoon|evening)|thanks?|thank you|ok(ay)?|cool|"
                          r"help|who are you|what can you do|what do you do|how does this work)\b[\s!?.]*$", re.I)
 REPORT_WORDS_RE = re.compile(r"\b(reports?|summari[sz]e|export|save)\b.*\b(conversation|chat|this|discussion|so far|reports?)\b", re.I)
+FAILURE_RE = re.compile(r"\s*(I couldn't|\w+ couldn't (answer|be reached))", re.I)   # agents' failure replies
 SCOUT_WORDS_RE = re.compile(r"\b(papers?|arxiv|preprints?|publications?|literature|recent|latest|newer|newest|"
                             r"new work|state of the art|sota)\b", re.I)
 
@@ -148,15 +149,17 @@ def keyword_route(question: str, allowed: list[str]) -> list[str]:
 
 
 def conversation_so_far(messages) -> list[dict]:
-    """The router's chat as [{"q", "a"}], skipping direct replies (greetings) and earlier report turns."""
+    """The router's chat as [{"q", "a"}], skipping direct replies (greetings), earlier report turns and turns
+    where every agent failed (e.g. arXiv timed out): a failure message doesn't belong in a report."""
     turns, question = [], None
     for m in messages:
         if m.type == "human":
             question = text_of(m)
         elif m.type == "ai" and question is not None:
-            route = (m.additional_kwargs or {}).get("route") or []
-            if route and not set(route) <= NEEDS_CONVERSATION:
-                turns.append({"q": question, "a": text_of(m)})
+            kwargs = m.additional_kwargs or {}
+            route, failed = kwargs.get("route") or [], kwargs.get("failed") or []
+            if route and not set(route) <= NEEDS_CONVERSATION and not set(route) <= set(failed):
+                turns.append({"q": question, "a": text_of(m)})       # skips turns where every agent failed
             question = None
     return turns
 
@@ -239,9 +242,12 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         else:
             text = "\n\n".join(f"### {HEADINGS.get(a, a)} ({a})\n\n{replies.get(a, {}).get('text', '')}"
                                for a in state["route"])
-        failed = [a for a in state["route"] if not replies.get(a, {}).get("state", "").endswith("COMPLETED")]
+        failed = [a for a in state["route"]
+                  if not replies.get(a, {}).get("state", "").endswith("COMPLETED")
+                  or FAILURE_RE.match(replies.get(a, {}).get("text", ""))]     # completed, but only to say it failed
         timings = {**state["timings"], **{f"{a}_ms": r["ms"] for a, r in replies.items()}}
-        reply = AIMessage(content=text, additional_kwargs={"agent": agent_name, "route": state["route"]})
+        reply = AIMessage(content=text, additional_kwargs={"agent": agent_name, "route": state["route"],
+                                                           "failed": failed})
         return {"answer": text, "refused": bool(failed), "last_route": state["route"], "timings": timings,
                 "messages": [reply]}
 

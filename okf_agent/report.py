@@ -88,6 +88,18 @@ def parse_summary(text: str, fallback_title: str) -> tuple[str, list[str]]:
     return title[:120], bullets
 
 
+NUMBER_RE = re.compile(r"\d+(?:[.,/:\-]\d+)*%?")
+
+
+def check_numbers(bullets: list[str], source_text: str) -> tuple[list[str], list[str]]:
+    """Keep summary bullets whose numbers all appear in the conversation. qwen writes the summary, and a
+    4B model can garble a number ("213/400" → "213/40-0"); a wrong number in a report is worse than none."""
+    kept, dropped = [], []
+    for b in bullets:
+        (kept if all(n in source_text for n in NUMBER_RE.findall(b)) else dropped).append(b)
+    return kept, dropped
+
+
 def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:50] or "report"
 
@@ -143,7 +155,10 @@ def build_report_graph(files, llm, reports_dir: str, log_conn=None, agent_name: 
         convo = "\n\n".join(f"Q: {t['q']}\nA: {t['a'][:700]}" for t in state["transcript"])  # trimmed: ~1.5k tokens
         reply = llm.complete(SUMMARY_PROMPT, f"Request: {state['request']}\n\nConversation:\n\n{convo}")
         title, bullets = parse_summary(reply.text, fallback_title=state["transcript"][0]["q"][:80])
-        return {"title": title, "summary": bullets,
+        source = "\n".join(t["q"] + "\n" + t["a"] for t in state["transcript"])
+        bullets, dropped = check_numbers(bullets, source)
+        title = title if all(n in source for n in NUMBER_RE.findall(title)) else state["transcript"][0]["q"][:80]
+        return {"title": title, "summary": bullets, "bad_citations": [f"summary: {b}" for b in dropped],
                 "llm": {"model": llm.name, "prompt_tokens": reply.prompt_tokens, "answer_tokens": reply.answer_tokens},
                 "timings": {**state["timings"], "generation_ms": round((time.perf_counter() - t0) * 1000, 1)}}
 
@@ -183,7 +198,7 @@ def build_report_graph(files, llm, reports_dir: str, log_conn=None, agent_name: 
                     f"Preview:\n\n{preview}\n…")
         else:
             text = f"I wrote the report but couldn't save it: {state['file_result']}"
-        refused = action != "write" or not state.get("path")
+        refused = action == "empty" or (action == "write" and not state.get("path"))   # a real failure only
         return {"answer": text, "refused": refused,
                 "messages": [AIMessage(content=text, additional_kwargs={"agent": agent_name, "path": state.get("path")})]}
 
@@ -212,5 +227,5 @@ def build_report_graph(files, llm, reports_dir: str, log_conn=None, agent_name: 
     return g
 
 
-__all__ = ["build_report_graph", "REPORT_NAME", "SEPARATOR", "split_message", "format_conversation",
+__all__ = ["check_numbers", "build_report_graph", "REPORT_NAME", "SEPARATOR", "split_message", "format_conversation",
            "build_markdown", "parse_summary", "slugify"]
