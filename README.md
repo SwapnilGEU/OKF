@@ -2,6 +2,7 @@
 
 Ask questions about five landmark AI papers and get cited answers, find newer papers on arXiv, and export the conversation as a report. Runs fully locally on a 6 GB laptop GPU.
 
+[![CI](https://github.com/SwapnilGEU/OKF/actions/workflows/ci.yml/badge.svg)](https://github.com/SwapnilGEU/OKF/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-agents-1C3C3C?logo=langchain&logoColor=white)
 ![A2A](https://img.shields.io/badge/A2A-agent--to--agent-6E40C9)
@@ -118,6 +119,8 @@ OKF/
 ├── okf_agent/         the agents, router, guardrails, streaming   → okf_agent/README.md
 ├── ui/                Chainlit chat UI                            → ui/README.md
 ├── notebooks/         17 notebooks, one per step of the build     → notebooks/README.md
+├── tests/             offline test suite (pytest)
+├── .github/           CI/CD workflows + Dependabot
 ├── data/              source PDFs, parsed Markdown, eval questions → data/README.md
 ├── OKF_Bundle/        the knowledge bundle (sections + topic pages) → OKF_Bundle/README.md
 ├── artifacts/         generated files: graph, caches, eval results → artifacts/README.md
@@ -171,6 +174,19 @@ It opens four windows (OKF MCP server :8000, arXiv MCP server :8001, agent serve
 You can also use the library on its own: `python -m okf "What score did GPT-4 get on the bar exam?"`
 
 ---
+
+## Tests and CI/CD
+
+```bash
+pip install -e ".[agent]" pytest
+pytest                     # 39 tests, offline: a fake model and fake tools, no servers needed
+```
+
+- **CI** (`.github/workflows/ci.yml`, every push and pull request): Ruff lint, notebook validation, the test suite on Python 3.12, a dependency-conflict check, and an import check of the UI in its own Chainlit env.
+- **CD** (`.github/workflows/release.yml`): pushing a tag like `v0.2.0` reruns CI, builds the wheel and sdist, and publishes a GitHub Release with auto-generated notes.
+- **Dependabot** opens update PRs for Actions and Python packages; CI tests each one.
+
+The tests cover the guardrails (attacks, look-alikes, API keys, citations), routing and follow-ups after a blocked message, token streaming through LangGraph and A2A, the agents end to end with fakes, and the bundle loader.
 
 ## Design decisions
 

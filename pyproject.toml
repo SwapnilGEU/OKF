@@ -40,3 +40,15 @@ guard-ml = [
 
 [tool.setuptools]
 packages = ["okf", "okf_mcp", "okf_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+extend-exclude = ["notebooks", "artifacts"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F841"]   # syntax errors, undefined names, unused code
