@@ -35,8 +35,10 @@ from __future__ import annotations
 
 import os
 import re
+import tempfile
 import threading
 import time
+import warnings
 from dataclasses import dataclass, field
 
 from guardrails import Guard, OnFailAction
@@ -237,6 +239,40 @@ class NumbersInContext(Validator):
         return FailResult(error_message=f"numbers not in the context: {', '.join(bad)}")
 
 
+class SafeSecretsPresent(SecretsPresent):
+    """The hub's SecretsPresent, fixed for Windows. It writes the message to a temp file for detect-secrets
+    with open()'s DEFAULT encoding, which on Windows is cp1252: any character outside it (Λ, हिंदी, emoji)
+    raised UnicodeEncodeError and crashed the whole guard. Same method, with encoding="utf-8"."""
+
+    def get_unique_secrets(self, value: str):
+        from detect_secrets import settings
+        from detect_secrets.core.secrets_collection import SecretsCollection
+
+        fd, temp_path = tempfile.mkstemp(suffix=".txt", prefix="guardrails_secrets_")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(value)
+            secrets = SecretsCollection()
+            with settings.default_settings():
+                secrets.scan_file(temp_path)
+            unique_secrets: dict = {}
+            for _, s in secrets:
+                lines_of = unique_secrets.setdefault(s.secret_value, [])
+                if s.line_number not in lines_of:
+                    lines_of.append(s.line_number)
+            with open(temp_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+        return unique_secrets, lines
+
+
+# Two harmless warnings that otherwise print on every message:
+warnings.filterwarnings("ignore", message="The DetectSecrets validator works best")   # we send one-liners
+warnings.filterwarnings("ignore", message="Could not obtain an event loop")           # sync validation is fine
+
+
 # --- building the guards (once, on first use: DetectJailbreak loads models) ------------------------
 def _guard(name: str, *validators) -> Guard:
     # NOTE: pass ALL validators to ONE .use() call. In guardrails-ai 0.11, .use(a).use(b) keeps only b.
@@ -259,7 +295,7 @@ class _Guards:
             validators = [
                 ValidLength(min=1, max=MAX_CHARS, on_fail=OnFailAction.NOOP),   # hub: block in code, don't truncate
                 InjectionPhrases(on_fail=OnFailAction.NOOP),                    # ours: block in code
-                SecretsPresent(on_fail=OnFailAction.FIX),                       # hub: AWS/GitHub/... keys → ****
+                SafeSecretsPresent(on_fail=OnFailAction.FIX),                   # hub (UTF-8 fix): AWS/GitHub/... keys → ****
                 ApiKeys(on_fail=OnFailAction.FIX),                              # ours: sk-, hf_, lsv2_ ... → ****
             ]
             jailbreak = _load_jailbreak()
@@ -284,6 +320,9 @@ def _load_jailbreak():
         from guardrails_ai.detect_jailbreak import DetectJailbreak
     except ImportError:
         return "off (not installed: pip install guardrails-ai-detect-jailbreak)"
+    except Exception as exc:                          # installed, but torch/transformers won't import
+        print(f"guards: DetectJailbreak can't be imported, using the regex only: {type(exc).__name__}: {exc}")
+        return f"off (import failed: {type(exc).__name__}, check torch)"
     try:
         return DetectJailbreak(threshold=JAILBREAK_THRESHOLD, device=GUARD_DEVICE, use_local=True,
                                on_fail=OnFailAction.NOOP)
