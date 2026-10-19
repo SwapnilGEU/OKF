@@ -1,5 +1,5 @@
 @echo off
-REM Starts the OKF backend in three windows. Run it from your activated `unsloth` terminal,
+REM Starts the OKF backend + UI in four windows. Run it from your activated `okf` terminal,
 REM in the OKF folder (the new windows inherit that environment).
 REM   1. OKF MCP server      http://127.0.0.1:8000/mcp   (search_okf, ask_okf, get_concept)
 REM   2. arXiv MCP server    http://127.0.0.1:8001/mcp   (third-party: arxiv-mcp-server, run by uvx)
@@ -14,12 +14,12 @@ cd /d "%~dp0"
 
 where langgraph >nul 2>nul
 if errorlevel 1 (
-    echo langgraph command not found. Activate the unsloth env, then: pip install -e ".[agent]"
+    echo langgraph command not found. Activate the okf env, then: pip install -e ".[agent]"
     exit /b 1
 )
 where uvx >nul 2>nul
 if errorlevel 1 (
-    echo uvx command not found. Activate the unsloth env, then: pip install -e ".[agent]"   ^(it installs uv^)
+    echo uvx command not found. Activate the okf env, then: pip install -e ".[agent]"   ^(it installs uv^)
     exit /b 1
 )
 
@@ -32,6 +32,10 @@ if errorlevel 1 (
 start "OKF MCP server :8000" cmd /k python -m okf_mcp.server
 start "arXiv MCP server :8001" cmd /k "set TRANSPORT=http&& set PORT=8001&& uvx arxiv-mcp-server@0.8.2"
 start "OKF agent server :2024" cmd /k langgraph dev --no-browser --port 2024 --n-jobs-per-worker 4
+REM   4. chat UI (Chainlit) http://localhost:8501: its own small env via uvx (like the arXiv server), so
+REM      Chainlit's dependencies never touch the okf env. The first start downloads it (~1 min); it opens
+REM      your browser when ready.
+start "OKF UI :8501" cmd /k "cd /d %~dp0ui && uvx --from chainlit==2.12.0 chainlit run app.py --port 8501"
 
 echo Started. Wait for "ready" (MCP), "Uvicorn running on http://127.0.0.1:8001" (arXiv; the first start
-echo downloads it, ~1 min) and "API: http://127.0.0.1:2024" (agents).
+echo downloads it, ~1 min), "API: http://127.0.0.1:2024" (agents) and "Your app is available at http://localhost:8501" (UI).

@@ -25,3 +25,7 @@ OKF_Bundle.zip
 
 # report_agent output (step 15)
 reports/
+
+# chainlit UI: generated at runtime
+ui/.files/
+ui/.chainlit/translations/
