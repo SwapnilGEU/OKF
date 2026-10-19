@@ -1,18 +1,30 @@
 # OKF: a multi-agent research assistant over AI papers
 
-Ask questions about five landmark AI papers and get cited answers, find newer papers on arXiv, and export the conversation as a report. It runs fully locally on a 6 GB laptop GPU.
+Ask questions about five landmark AI papers and get cited answers, find newer papers on arXiv, and export the conversation as a report. Runs fully locally on a 6 GB laptop GPU.
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-agents-1C3C3C?logo=langchain&logoColor=white)
+![A2A](https://img.shields.io/badge/A2A-agent--to--agent-6E40C9)
+![MCP](https://img.shields.io/badge/MCP-tools-000000)
+![Ollama](https://img.shields.io/badge/Ollama-qwen3%204B-000000?logo=ollama&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-hybrid%20search-DC244C?logo=qdrant&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-memory%20%2B%20logs-4169E1?logo=postgresql&logoColor=white)
+![Guardrails AI](https://img.shields.io/badge/Guardrails%20AI-validators-FF6B00)
+![Chainlit](https://img.shields.io/badge/Chainlit-UI-F80061)
+![DeepEval](https://img.shields.io/badge/DeepEval-evaluation-5A4FCF)
+![MinerU](https://img.shields.io/badge/MinerU-PDF%20parsing-2E7D32)
+
+## The chat UI
 
 ![The chat UI](docs/images/ui.png)
 
 **What it does**
 
-- **Answers from the papers, with citations.** Every claim points to the section it came from, e.g. `[papers/gpt-4-technical-report/4-capabilities-part-1]`.
-- **Finds newer work on arXiv** that isn't in the five papers.
-- **Writes a Markdown report** of the conversation.
-- **Guards itself.** It blocks prompt injection, masks pasted API keys, and repairs or removes made-up citations.
-- **Streams answers** token by token into a chat UI that shows which agent answered and what it read.
+- **Cited answers** from the five papers, streamed as they're written
+- **Newer papers** from arXiv, and **Markdown reports** of the conversation
+- **Guardrails**: blocks prompt injection, masks API keys, fixes made-up citations
 
-The papers: *GPT-4 Technical Report*, *Sparks of AGI*, *HELM*, *A Survey of Large Language Models*, *On the Opportunities and Risks of Foundation Models* (775 pages in total).
+The papers: *GPT-4 Technical Report*, *Sparks of AGI*, *HELM*, *A Survey of Large Language Models*, *On the Opportunities and Risks of Foundation Models* (775 pages).
 
 ---
 
