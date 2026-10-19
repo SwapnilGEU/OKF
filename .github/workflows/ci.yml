@@ -21,7 +21,7 @@ jobs:
     name: Lint + notebooks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -45,7 +45,7 @@ jobs:
       OKF_GUARD_JAILBREAK: "0"      # don't download the ML jailbreak detector
       LANGSMITH_TRACING: "false"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -62,7 +62,7 @@ jobs:
     name: UI imports (own env)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
       - name: Import ui/app.py with Chainlit 2.12 on Python 3.12, like start_backend.bat runs it
         working-directory: ui
