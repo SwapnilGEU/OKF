@@ -1,6 +1,6 @@
 """The OKF bundle: one markdown file = one concept, markdown links = edges.
 
-Same rules as 02/07: the concept ID is the path without `.md`; `index.md` and `log.md` are skipped.
+Same rules as 02/07: the concept ID is the path without `.md`; `index.md`, `log.md` and `README.md` are skipped.
 - out_links[A]: what A points to (a topic page points to the sections it cites)
 - in_links[A]:  what points to A (for a section: the topic pages that cite it)
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-RESERVED = {"index.md", "log.md"}
+RESERVED = {"index.md", "log.md", "README.md"}
 LINK_RE = re.compile(r"\[([^\]]*)\]\((/[^)#\s]+)\.md\)")
 
 

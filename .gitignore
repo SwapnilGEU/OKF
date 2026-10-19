@@ -11,10 +11,17 @@ __pycache__/
 # generated data (rebuildable from data/raw)
 data/processed/
 data/index/
-artifacts/
+artifacts/*
+!artifacts/README.md
+!artifacts/ingestion_manifest.json
+!artifacts/results/
+artifacts/results/*
+!artifacts/results/summary.csv
+!artifacts/results/per_question_scores.csv
 
 # OKF bundle (built separately) and its zip copy
-OKF_Bundle/
+OKF_Bundle/*
+!OKF_Bundle/README.md
 OKF_Bundle.zip
 
 # pip install -e . metadata

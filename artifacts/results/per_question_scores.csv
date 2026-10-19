@@ -1,0 +1,121 @@
+id,type,papers,answerable,method,refusal,retrieval_ms,generation_ms,prompt_tokens,answer_tokens,context_blocks,context_chars,contextual_precision,contextual_recall,faithfulness,answer_relevancy
+q01,fact,['Holistic_Eval'],True,OKF,,7.3,3479.9,5152,58,5,17361,1.0,1.0,1.0,1.0
+q01,fact,['Holistic_Eval'],True,OKF hybrid,,899.8,6067.9,4988,69,5,17344,0.8875,1.0,0.5,1.0
+q01,fact,['Holistic_Eval'],True,Graph,,28.4,8763.1,4042,298,9,13847,0.7575757575757575,1.0,1.0,0.8888888888888888
+q01,fact,['Holistic_Eval'],True,Graph hybrid,,1656.2,4248.5,4546,93,11,14900,0.35555555555555557,1.0,1.0,1.0
+q02,fact,['GPT-4'],True,OKF,,5.3,7410.1,6605,48,6,16600,1.0,1.0,1.0,1.0
+q02,fact,['GPT-4'],True,OKF hybrid,,1476.7,5637.2,4861,48,5,15306,1.0,1.0,1.0,1.0
+q02,fact,['GPT-4'],True,Graph,partial,23.5,5936.0,3453,83,9,12013,0.47936444507873066,0.0,0.6666666666666666,1.0
+q02,fact,['GPT-4'],True,Graph hybrid,partial,967.6,5997.2,3696,100,11,13005,0.6926190476190476,0.0,0.5,1.0
+q03,fact,['AGI'],True,OKF,,6.4,7879.3,3901,165,4,13621,1.0,1.0,1.0,1.0
+q03,fact,['AGI'],True,OKF hybrid,,1565.0,7932.5,5190,140,5,17228,1.0,1.0,1.0,1.0
+q03,fact,['AGI'],True,Graph,,71.8,7645.9,3613,164,9,13447,0.0,0.0,1.0,1.0
+q03,fact,['AGI'],True,Graph hybrid,,3433.0,7254.1,4127,155,11,14532,0.3333333333333333,0.6666666666666666,1.0,1.0
+q04,fact,['GPT-4'],True,OKF,,8.3,6410.6,4357,101,5,17375,,,,1.0
+q04,fact,['GPT-4'],True,OKF hybrid,,3595.2,6621.3,4547,95,6,17641,1.0,1.0,1.0,1.0
+q04,fact,['GPT-4'],True,Graph,,51.6,6286.3,3123,76,7,11161,1.0,1.0,1.0,1.0
+q04,fact,['GPT-4'],True,Graph hybrid,,3513.6,6554.7,3810,121,11,13529,0.5249999999999999,1.0,1.0,1.0
+q05,fact,['LLMs'],True,OKF,,7.4,6579.3,4747,90,5,17656,0.3333333333333333,1.0,1.0,1.0
+q05,fact,['LLMs'],True,OKF hybrid,,1592.2,6441.7,4386,94,5,16834,0.25,1.0,1.0,1.0
+q05,fact,['LLMs'],True,Graph,,37.3,5885.1,3829,81,9,14682,0.75,1.0,1.0,1.0
+q05,fact,['LLMs'],True,Graph hybrid,,3965.6,5542.8,4019,65,11,15367,0.3666666666666667,1.0,1.0,1.0
+q06,fact,['LLMs'],True,OKF,,7.6,7739.1,4604,160,5,16590,0.25,1.0,1.0,1.0
+q06,fact,['LLMs'],True,OKF hybrid,,1842.1,7915.0,4088,147,5,14486,1.0,1.0,1.0,1.0
+q06,fact,['LLMs'],True,Graph,full,50.4,4658.7,3984,8,9,13616,0.0,0.0,,1.0
+q06,fact,['LLMs'],True,Graph hybrid,partial,1634.1,6846.7,3888,135,11,12408,0.16666666666666666,0.6666666666666666,0.8,1.0
+q07,explain,['Holistic_Eval'],True,OKF,,6.2,10633.9,4643,275,5,16982,0.5888888888888889,1.0,1.0,1.0
+q07,explain,['Holistic_Eval'],True,OKF hybrid,,1551.4,7725.0,4616,152,5,17792,0.0,0.0,1.0,1.0
+q07,explain,['Holistic_Eval'],True,Graph,,28.4,9603.8,3431,175,9,11952,0.06979405034324943,0.3333333333333333,1.0,1.0
+q07,explain,['Holistic_Eval'],True,Graph hybrid,,1536.6,7349.8,3633,177,11,13799,0.6916666666666667,1.0,1.0,1.0
+q08,explain,['GPT-4'],True,OKF,,5.6,6925.7,3790,139,6,15356,1.0,1.0,1.0,1.0
+q08,explain,['GPT-4'],True,OKF hybrid,,1601.0,10771.7,4260,309,7,16403,1.0,1.0,0.6,1.0
+q08,explain,['GPT-4'],True,Graph,,43.4,13312.4,3233,109,9,11965,0.8583333333333332,0.25,1.0,0.7142857142857143
+q08,explain,['GPT-4'],True,Graph hybrid,,1703.5,8842.0,3221,241,11,11443,0.6622494789161455,0.75,1.0,1.0
+q09,explain,['Foundation_Models'],True,OKF,,5.4,10565.0,4200,307,6,17544,0.9266666666666665,1.0,1.0,1.0
+q09,explain,['Foundation_Models'],True,OKF hybrid,,1463.6,11112.5,4081,338,6,17355,0.8055555555555555,1.0,1.0,1.0
+q09,explain,['Foundation_Models'],True,Graph,,31.3,8782.7,2293,199,5,8570,1.0,0.75,1.0,1.0
+q09,explain,['Foundation_Models'],True,Graph hybrid,,1649.0,7873.2,2254,216,7,8708,0.6916666666666667,1.0,1.0,1.0
+q10,explain,['GPT-4'],True,OKF,,4.9,11688.4,3882,357,6,16339,0.5833333333333333,1.0,1.0,1.0
+q10,explain,['GPT-4'],True,OKF hybrid,,1509.5,9561.0,4275,249,5,16730,0.8333333333333333,1.0,0.9166666666666666,1.0
+q10,explain,['GPT-4'],True,Graph,full,36.9,4046.0,3667,8,9,13409,0.8541666666666666,0.0,,0.0
+q10,explain,['GPT-4'],True,Graph hybrid,,3171.2,9650.4,3743,294,11,14101,0.6155122655122655,0.75,1.0,1.0
+q11,explain,['Holistic_Eval'],True,OKF,,5.2,7490.5,4186,148,5,16618,0.8333333333333333,1.0,1.0,0.8571428571428571
+q11,explain,['Holistic_Eval'],True,OKF hybrid,,1625.9,6147.7,4259,98,5,17104,0.75,1.0,1.0,1.0
+q11,explain,['Holistic_Eval'],True,Graph,,24.6,6364.5,3542,110,9,13820,0.8086700336700336,1.0,1.0,1.0
+q11,explain,['Holistic_Eval'],True,Graph hybrid,,1528.2,4744.5,3809,38,11,15196,0.8909090909090909,0.6666666666666666,1.0,0.75
+q12,explain,['Foundation_Models'],True,OKF,,6.6,7862.2,3897,167,5,14345,0.5888888888888889,1.0,0.8333333333333334,1.0
+q12,explain,['Foundation_Models'],True,OKF hybrid,,1530.0,7479.7,3912,172,5,14610,0.7555555555555555,1.0,1.0,1.0
+q12,explain,['Foundation_Models'],True,Graph,,47.5,7644.2,3282,162,9,13735,1.0,0.75,1.0,0.625
+q12,explain,['Foundation_Models'],True,Graph hybrid,,1095.7,7581.9,3506,184,11,14456,0.8412257495590829,1.0,1.0,1.0
+q13,explain,['LLMs'],True,OKF,,5.1,7592.3,3954,142,6,14566,0.8666666666666667,1.0,1.0,1.0
+q13,explain,['LLMs'],True,OKF hybrid,,3112.3,9447.6,4445,250,5,17461,0.6791666666666667,1.0,1.0,1.0
+q13,explain,['LLMs'],True,Graph,,40.4,7970.6,3395,194,9,12359,0.25,0.25,1.0,1.0
+q13,explain,['LLMs'],True,Graph hybrid,,3408.7,6269.4,3423,125,11,12740,0.41666666666666663,1.0,1.0,1.0
+q14,explain,['LLMs'],True,OKF,,11.5,6740.1,3973,110,5,16735,0.3333333333333333,1.0,1.0,1.0
+q14,explain,['LLMs'],True,OKF hybrid,,1624.5,6013.0,3953,95,5,16082,0.25,1.0,1.0,1.0
+q14,explain,['LLMs'],True,Graph,,26.2,5657.0,2589,95,8,9812,0.5,0.3333333333333333,1.0,1.0
+q14,explain,['LLMs'],True,Graph hybrid,,1463.2,5847.7,3281,104,11,12851,0.4492424242424242,0.3333333333333333,1.0,1.0
+q15,relational,['AGI'],True,OKF,,6.2,11833.4,3752,360,6,14971,1.0,1.0,1.0,1.0
+q15,relational,['AGI'],True,OKF hybrid,,1514.9,12975.1,3752,435,6,14971,1.0,1.0,1.0,1.0
+q15,relational,['AGI'],True,Graph,,33.6,6376.4,3716,114,9,13621,0.2976190476190476,0.5,1.0,1.0
+q15,relational,['AGI'],True,Graph hybrid,,1567.9,8189.6,3772,218,11,14564,1.0,1.0,1.0,1.0
+q16,relational,['AGI'],True,OKF,,7.9,6891.8,4481,109,5,17571,0.3333333333333333,1.0,1.0,
+q16,relational,['AGI'],True,OKF hybrid,,3156.0,6637.6,4065,113,5,16235,0.3333333333333333,1.0,,
+q16,relational,['AGI'],True,Graph,full,50.3,4370.8,3589,8,9,13169,0.0,0.0,,0.0
+q16,relational,['AGI'],True,Graph hybrid,,3527.9,5895.2,3738,101,11,13988,0.3333333333333333,1.0,,
+q17,relational,['GPT-4'],True,OKF,,8.4,9434.9,3563,241,4,13788,0.8055555555555555,1.0,1.0,1.0
+q17,relational,['GPT-4'],True,OKF hybrid,,1561.1,8622.6,3563,239,4,13788,0.8055555555555555,1.0,1.0,1.0
+q17,relational,['GPT-4'],True,Graph,,53.9,8230.7,3245,183,8,11362,1.0,1.0,1.0,1.0
+q17,relational,['GPT-4'],True,Graph hybrid,,1606.2,7105.0,3033,174,9,10809,1.0,1.0,1.0,1.0
+q18,relational,['Holistic_Eval'],True,OKF,,7.4,6911.3,5601,54,5,17476,0.3333333333333333,1.0,1.0,1.0
+q18,relational,['Holistic_Eval'],True,OKF hybrid,,1495.5,6239.5,6095,54,5,17797,0.3333333333333333,1.0,1.0,1.0
+q18,relational,['Holistic_Eval'],True,Graph,,58.2,6383.1,4275,73,9,12801,1.0,1.0,0.6666666666666666,1.0
+q18,relational,['Holistic_Eval'],True,Graph hybrid,,3242.6,5877.0,4641,85,11,13873,0.5,1.0,1.0,1.0
+q19,two_part,"['GPT-4', 'LLMs']",True,OKF,,5.2,9943.3,4471,220,5,16066,1.0,1.0,1.0,1.0
+q19,two_part,"['GPT-4', 'LLMs']",True,OKF hybrid,,3019.2,7669.8,4324,154,5,15486,1.0,1.0,1.0,1.0
+q19,two_part,"['GPT-4', 'LLMs']",True,Graph,,56.7,8398.8,3492,211,9,12494,0.5001607729348524,0.5,1.0,1.0
+q19,two_part,"['GPT-4', 'LLMs']",True,Graph hybrid,,3257.0,9832.2,3740,297,11,13363,0.4305555555555555,1.0,1.0,1.0
+q20,two_part,['Foundation_Models'],True,OKF,,7.0,7981.2,4076,153,6,17653,0.8055555555555555,1.0,1.0,1.0
+q20,two_part,['Foundation_Models'],True,OKF hybrid,,1591.8,7076.2,3416,159,5,15309,0.8333333333333333,1.0,1.0,1.0
+q20,two_part,['Foundation_Models'],True,Graph,full,44.9,4111.8,3036,8,9,13168,0.0,0.0,,1.0
+q20,two_part,['Foundation_Models'],True,Graph hybrid,,1639.6,6629.5,3191,154,11,14181,0.35555555555555557,1.0,1.0,1.0
+q21,two_part,['Foundation_Models'],True,OKF,,9.6,8317.9,4365,156,5,17899,0.25,1.0,1.0,1.0
+q21,two_part,['Foundation_Models'],True,OKF hybrid,,2968.0,7506.4,3747,174,5,15615,0.95,1.0,0.5,1.0
+q21,two_part,['Foundation_Models'],True,Graph,full,61.1,4171.4,3284,8,9,13967,0.0,0.0,,0.0
+q21,two_part,['Foundation_Models'],True,Graph hybrid,,3352.0,6629.0,3511,147,11,14547,0.6622494789161455,1.0,0.6666666666666666,1.0
+q22,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval', 'LLMs']",True,OKF,,6.1,16866.1,3651,514,6,15317,1.0,0.5,1.0,1.0
+q22,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval', 'LLMs']",True,OKF hybrid,,1490.1,13817.0,3958,472,5,17103,0.8666666666666667,0.5,1.0,1.0
+q22,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval', 'LLMs']",True,Graph,,29.3,15022.0,3337,557,9,12942,0.7253968253968255,1.0,1.0,1.0
+q22,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval', 'LLMs']",True,Graph hybrid,,1560.5,15761.2,3191,612,11,12936,1.0,0.75,1.0,1.0
+q23,cross_paper,"['AGI', 'GPT-4']",True,OKF,,11.2,12307.6,4122,258,6,16841,1.0,1.0,1.0,1.0
+q23,cross_paper,"['AGI', 'GPT-4']",True,OKF hybrid,,1565.0,7680.8,4290,159,5,17038,1.0,1.0,0.8571428571428571,1.0
+q23,cross_paper,"['AGI', 'GPT-4']",True,Graph,,49.9,10815.8,3636,301,9,13727,0.39285714285714285,0.0,1.0,1.0
+q23,cross_paper,"['AGI', 'GPT-4']",True,Graph hybrid,,1394.5,11200.2,3748,347,11,14222,0.975,0.0,1.0,1.0
+q24,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval']",True,OKF,,16.3,14927.7,3631,379,6,14726,0.8333333333333334,0.3333333333333333,0.9230769230769231,1.0
+q24,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval']",True,OKF hybrid,,1529.6,11452.0,3690,369,4,15056,1.0,1.0,0.9333333333333333,1.0
+q24,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval']",True,Graph,full,46.4,4263.4,3355,8,9,12805,0.0,0.3333333333333333,,0.0
+q24,cross_paper,"['AGI', 'GPT-4', 'Holistic_Eval']",True,Graph hybrid,,1615.8,10289.9,3400,323,11,12868,0.38075396825396823,0.0,1.0,1.0
+q25,cross_paper,"['Foundation_Models', 'LLMs']",True,OKF,,7.9,13159.7,4178,304,5,17161,1.0,1.0,1.0,0.9090909090909091
+q25,cross_paper,"['Foundation_Models', 'LLMs']",True,OKF hybrid,,1455.5,10547.7,4077,308,5,16927,1.0,1.0,1.0,1.0
+q25,cross_paper,"['Foundation_Models', 'LLMs']",True,Graph,,50.9,9184.9,3162,262,9,12879,1.0,0.3333333333333333,1.0,1.0
+q25,cross_paper,"['Foundation_Models', 'LLMs']",True,Graph hybrid,,1631.4,11659.4,3360,400,11,13684,0.2,1.0,1.0,0.9285714285714286
+q26,cross_paper,"['Foundation_Models', 'GPT-4']",True,OKF,,9.7,14117.3,3344,339,5,15265,1.0,1.0,0.8888888888888888,1.0
+q26,cross_paper,"['Foundation_Models', 'GPT-4']",True,OKF hybrid,,1511.5,10838.3,4034,319,6,17624,0.8099999999999999,1.0,1.0,1.0
+q26,cross_paper,"['Foundation_Models', 'GPT-4']",True,Graph,,48.4,8416.5,3145,226,9,12802,1.0,1.0,1.0,1.0
+q26,cross_paper,"['Foundation_Models', 'GPT-4']",True,Graph hybrid,,1583.6,7972.0,3396,207,11,13828,1.0,1.0,1.0,1.0
+q27,cross_paper,"['GPT-4', 'Holistic_Eval']",True,OKF,,14.5,16602.5,4060,413,6,15181,1.0,1.0,1.0,1.0
+q27,cross_paper,"['GPT-4', 'Holistic_Eval']",True,OKF hybrid,,1626.1,10633.3,4236,311,7,16618,0.6961904761904762,1.0,1.0,0.9166666666666666
+q27,cross_paper,"['GPT-4', 'Holistic_Eval']",True,Graph,,42.4,9487.6,3279,277,9,11622,0.6638113710759371,0.5,1.0,0.9
+q27,cross_paper,"['GPT-4', 'Holistic_Eval']",True,Graph hybrid,,1564.8,8459.3,3424,228,11,12289,0.6791666666666667,1.0,1.0,1.0
+q28,unanswerable,[],False,OKF,full,7.8,5814.7,5093,8,6,17026,,,,
+q28,unanswerable,[],False,OKF hybrid,full,1633.4,4423.1,4461,8,5,14565,,,,
+q28,unanswerable,[],False,Graph,full,31.4,3934.4,2858,8,9,11614,,,,
+q28,unanswerable,[],False,Graph hybrid,full,1538.9,4133.1,3945,8,11,13986,,,,
+q29,unanswerable,[],False,OKF,full,5.3,5114.5,4029,8,6,13263,,,,
+q29,unanswerable,[],False,OKF hybrid,full,823.6,4748.4,5338,8,5,15259,,,,
+q29,unanswerable,[],False,Graph,full,46.1,4366.8,3678,8,9,12404,,,,
+q29,unanswerable,[],False,Graph hybrid,full,875.1,4207.8,4206,8,11,13470,,,,
+q30,unanswerable,[],False,OKF,full,9.0,5306.3,4353,8,6,15449,,,,
+q30,unanswerable,[],False,OKF hybrid,full,902.1,4526.4,4510,8,6,17385,,,,
+q30,unanswerable,[],False,Graph,full,48.9,4375.1,3519,8,9,11751,,,,
+q30,unanswerable,[],False,Graph hybrid,full,959.4,4463.5,4247,8,11,13249,,,,
