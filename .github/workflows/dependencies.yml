@@ -1,1 +1,13 @@
+# Weekly PRs when a GitHub Action or a Python dependency has a new version. CI tests each one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
 
