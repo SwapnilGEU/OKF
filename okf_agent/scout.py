@@ -4,7 +4,9 @@
                            └─(none, first try)─► relax ─► search          (back to search, once)
 
 plan       qwen turns the request into an arXiv search (JSON: keywords, newest-first?, since when?)
-search     calls `search_papers` on the arXiv MCP server (a ready-made, third-party server)
+search     calls `search_papers` on the arXiv MCP server (a ready-made, third-party server). Abstracts are
+           untrusted text: a sentence in one that gives the model instructions is removed first
+           (okf_agent.guards.clean_untrusted, the "indirect prompt injection" guard)
 relax      nothing found: retry once with the keywords OR-ed instead of AND-ed
 summarize  qwen picks the best papers and says in one line each why they fit
 check      which [arXiv:id] citations are real; removes lines about made-up papers; adds the links
@@ -26,6 +28,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 
 from .db import insert_qa_log
+from .guards import clean_untrusted
 from .graph import looks_like_followup, previous_turn, text_of
 from .mcp_tools import call_tool
 from .state import AgentState
@@ -116,7 +119,7 @@ def search_result(raw) -> dict:
 def paper_block(p: dict) -> str:
     year = (p.get("published") or "")[:4]
     authors = ", ".join(p.get("authors", [])[:4]) + (" et al." if len(p.get("authors", [])) > 4 else "")
-    abstract = p.get("abstract", "")
+    abstract, _ = clean_untrusted(p.get("abstract", ""))
     if len(abstract) > ABSTRACT_CHARS:
         abstract = abstract[:ABSTRACT_CHARS].rsplit(" ", 1)[0] + " …"
     return f"### [arXiv:{p['id']}] {p.get('title', '')} ({year})\nAuthors: {authors}\nAbstract: {abstract}"
@@ -159,8 +162,9 @@ def build_scout_graph(tools, llm, log_conn=None, agent_name: str = SCOUT_NAME) -
                      "text": paper_block(p)} for p in papers]
         timings = {**state["timings"], "search_ms": round(state["timings"].get("search_ms", 0)
                                                          + (time.perf_counter() - t0) * 1000, 1)}
+        flagged = [f"arXiv:{p['id']}" for p in papers if clean_untrusted(p.get("abstract", ""))[1]]
         return {"passages": passages, "total_results": result.get("total_results"), "search_error": error,
-                "timings": timings}
+                "timings": timings, "guard": {"abstracts_cleaned": flagged} if flagged else {}}
 
     def after_search(state: ScoutState) -> str:
         """The conditional edge: LangGraph calls this to pick the next node."""

@@ -32,6 +32,7 @@ from okf.llm import make_llm
 from .config import AgentConfig
 from .db import ensure_qa_log
 from .graph import build_graph
+from .guards import GUARDS
 from .mcp_tools import PersistentMCP, load_tools
 from .report import REPORT_NAME, build_report_graph
 from .router import ROUTER_NAME, build_router_graph, default_directory
@@ -99,3 +100,7 @@ report_graph.name = REPORT_NAME
 
 router_graph = build_router_graph(default_directory(), LLM, LOG).compile()
 router_graph.name = ROUTER_NAME
+
+# The guardrails load their models (DetectJailbreak: ~10-30 s on CPU) in the background now, instead of
+# during the first message. A message that arrives earlier just waits for them.
+threading.Thread(target=GUARDS.load, name="load-guards", daemon=True).start()

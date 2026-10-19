@@ -26,6 +26,7 @@ class AgentState(TypedDict, total=False):
     sources: list[dict]        # passages the answer cites
     refused: bool              # "The bundle does not contain this."
     bad_citations: list[str]   # ids cited in the answer but NOT in the passages (made up)
+    guard: dict                # what the guardrails found or fixed this turn (okf_agent.guards)
     timings: dict              # milliseconds per step
     llm: dict                  # model name and token counts
     log_id: int | None         # row id in qa_log
@@ -44,3 +45,4 @@ class AgentReply(BaseModel):
     timings: dict = Field(default_factory=dict)
     llm: dict = Field(default_factory=dict)
     log_id: int | None = None
+    guard: dict = Field(default_factory=dict)

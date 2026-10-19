@@ -5,7 +5,8 @@
 prepare  read the question; is it a follow-up? (then search with the previous question added)
 search   call search_okf on the MCP server (retrieval only, no LLM)
 answer   qwen writes the answer from the passages: the ONE model call per question
-check    which citations are real, which are made up, did it refuse? append the reply to the chat
+check    output guardrails (okf_agent.guards): made-up citations repaired or removed, numbers that aren't
+         in the passages flagged; then which citations are real, did it refuse? append the reply to the chat
 log      one row in Postgres' qa_log
 
 Each node is a plain function: it gets the state, returns the keys it changed.
@@ -24,6 +25,7 @@ from okf.llm import SYSTEM_PROMPT, user_message
 from okf.pipeline import CITATION_RE
 
 from .db import insert_qa_log
+from .guards import check_answer
 from .mcp_tools import call_tool
 from .state import AgentState
 
@@ -95,14 +97,17 @@ def build_graph(tools: dict, llm, log_conn=None, agent_name: str = AGENT_NAME) -
 
     def check(state: AgentState) -> dict:
         used = [p["source"]["id"] for p in state["passages"]]
-        cited = cited_ids(state["answer"], used)                           # real citations, in context order
-        mentioned = {part.strip() for group in CITATION_RE.findall(state["answer"])
-                     for part in re.split(r"[,;]", group)}
+        raw = state["answer"]                                              # what qwen wrote
+        mentioned = {part.strip() for group in CITATION_RE.findall(raw) for part in re.split(r"[,;]", group)}
         bad = sorted(c for c in mentioned if "/" in c and c not in used)  # looks like an id, but wasn't given
+        guarded = check_answer(raw, used, "\n\n".join(p["text"] for p in state["passages"]))
+        answer = guarded.text                                              # made-up citations fixed
+        cited = cited_ids(answer, used)                                    # real citations, in context order
         sources = [p["source"] for p in state["passages"] if p["source"]["id"] in cited]
-        reply = AIMessage(content=state["answer"], additional_kwargs={"sources": sources, "agent": agent_name})
-        return {"sources": sources, "bad_citations": bad, "refused": is_refusal(state["answer"]),
-                "messages": [reply]}                                       # add_messages APPENDS this to the chat
+        reply = AIMessage(content=answer, additional_kwargs={"sources": sources, "agent": agent_name,
+                                                             "guard": guarded.summary()})
+        return {"answer": answer, "sources": sources, "bad_citations": bad, "refused": is_refusal(answer),
+                "guard": guarded.summary(), "messages": [reply]}          # add_messages APPENDS this to the chat
 
     def log(state: AgentState, config) -> dict:
         timings = {**state["timings"], "total_ms": round((time.time() - state["timings"]["started"]) * 1000, 1)}

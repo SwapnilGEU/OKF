@@ -1,10 +1,15 @@
 """The router: one entry point that sends each message to the right agent(s) over A2A.
 
-                       ┌─► ask_okf_agent ───┐
-    START → route ─────┼─► ask_paper_scout ─┼─► combine → log → END
-                       └─► direct ──────────┘
-    (conditional edge: one branch, BOTH ask_ branches in parallel, or direct)
+                                  ┌─► ask_okf_agent ───┐
+    START → guard_in ─► route ────┼─► ask_paper_scout ─┼─► combine → log → END
+                │                 └─► direct ──────────┘       ▲
+                └──────────── (blocked) ───────────────────────┘
+    (conditional edges: guard_in → route or straight to combine; route → one branch, BOTH ask_ branches
+     in parallel, or direct)
 
+guard_in  the input guardrails (okf_agent.guards, Guardrails AI): too long, prompt injection → a fixed
+          reply, no model call, no agent asked. API keys in the message are replaced by ******** (also in
+          the saved chat, so they never reach Postgres or an agent).
 route     decides, in this order:
             1. greeting / "what can you do"   → direct (rule, no model call)
             2. qwen picks from the agents' cards: [], one agent, or both (JSON). It also sees the
@@ -31,13 +36,14 @@ import threading
 import time
 from typing import Annotated
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 
 from .a2a_client import A2AClient, langgraph_card_url
 from .report import SEPARATOR, format_conversation
 from .db import insert_qa_log
 from .graph import looks_like_followup, previous_turn, text_of
+from .guards import check_input
 from .state import AgentState
 
 ROUTER_NAME = "okf_router"
@@ -90,6 +96,8 @@ class RouterState(AgentState, total=False):
     last_route: list[str]                              # previous turn's route (kept by the server's memory)
     contexts: Annotated[dict, merge_dict]              # {agent: A2A contextId} — one conversation per agent
     replies: Annotated[dict, merge_dict]               # {agent: {"text", "state", "ms"}} — this turn
+    blocked: str | None                                # set by guard_in: "too_long" / "injection" / None
+    guard: dict                                        # guard_in's findings: {validator: reason}
 
 
 class AgentDirectory:
@@ -166,9 +174,28 @@ def conversation_so_far(messages) -> list[dict]:
 
 def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name: str = ROUTER_NAME) -> StateGraph:
 
+    def guard_in(state: RouterState) -> dict:
+        """The input guardrails. Runs first, every turn, so it also resets the per-turn keys."""
+        message = state["messages"][-1]
+        check = check_input(text_of(message))
+        update = {"question": check.text.strip(), "blocked": check.blocked, "guard": check.failed,
+                  "timings": {"started": time.time(), "guard_ms": check.ms}}
+        if check.text.strip() != text_of(message).strip():
+            # Same id = REPLACE that message in the chat (add_messages), so the key isn't saved.
+            update["messages"] = [HumanMessage(content=check.text, id=message.id)]
+        if check.blocked:
+            update.update({"route": [], "route_by": f"guard-{check.blocked}", "followup": False, "parts": {},
+                           "answer": check.reply, "search_query": f"-> blocked ({check.blocked})",
+                           "replies": None, "bad_citations": [], "sources": [], "passages": [], "log_id": None,
+                           "llm": {"model": llm.name}})
+        return update
+
+    def after_guard(state: RouterState) -> str:
+        return "combine" if state.get("blocked") else "route"
+
     def route(state: RouterState) -> dict:
         t0 = time.perf_counter()
-        question = text_of(state["messages"][-1]).strip()
+        question = state["question"]                          # guard_in's copy (keys already removed)
         allowed = list(directory.clients())
         last = state.get("last_route")
         llm_info = {"model": llm.name}
@@ -199,7 +226,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         return {"question": question, "route": chosen, "route_by": by, "followup": followup, "parts": parts,
                 "search_query": f"-> {', '.join(chosen) or 'direct'} ({by})",
                 "replies": None, "bad_citations": [], "sources": [], "passages": [], "log_id": None, "llm": llm_info,
-                "timings": {"started": time.time(), "route_ms": round((time.perf_counter() - t0) * 1000, 1)}}
+                "timings": {**state["timings"], "route_ms": round((time.perf_counter() - t0) * 1000, 1)}}
 
     def after_route(state: RouterState) -> list[str]:
         """The conditional edge. Returning SEVERAL node names runs them in parallel."""
@@ -247,8 +274,9 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
                   or FAILURE_RE.match(replies.get(a, {}).get("text", ""))]     # completed, but only to say it failed
         timings = {**state["timings"], **{f"{a}_ms": r["ms"] for a, r in replies.items()}}
         reply = AIMessage(content=text, additional_kwargs={"agent": agent_name, "route": state["route"],
-                                                           "failed": failed})
-        return {"answer": text, "refused": bool(failed), "last_route": state["route"], "timings": timings,
+                                                           "failed": failed, "blocked": state.get("blocked")})
+        return {"answer": text, "refused": bool(failed) or bool(state.get("blocked")), "last_route": state["route"],
+                "timings": timings,
                 "messages": [reply]}
 
     def log(state: RouterState, config) -> dict:
@@ -263,6 +291,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         return {"timings": timings, "log_id": log_id}
 
     g = StateGraph(RouterState)
+    g.add_node("guard_in", guard_in)
     g.add_node("route", route)
     ask_nodes = [f"ask_{a}" for a in directory.names]
     for agent in directory.names:
@@ -270,7 +299,8 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
     g.add_node("direct", direct)
     g.add_node("combine", combine)
     g.add_node("log", log)
-    g.add_edge(START, "route")
+    g.add_edge(START, "guard_in")
+    g.add_conditional_edges("guard_in", after_guard, ["route", "combine"])
     g.add_conditional_edges("route", after_route, ask_nodes + ["direct"])
     for node in ask_nodes + ["direct"]:
         g.add_edge(node, "combine")                     # combine waits until every branch that ran is done

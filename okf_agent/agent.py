@@ -77,7 +77,7 @@ class OKFAgent:
                           bad_citations=state.get("bad_citations", []), followup=state.get("followup", False),
                           search_query=state.get("search_query", ""),
                           timings={k: v for k, v in state.get("timings", {}).items() if k != "started"},
-                          llm=state.get("llm", {}), log_id=state.get("log_id"))
+                          llm=state.get("llm", {}), log_id=state.get("log_id"), guard=state.get("guard", {}))
 
     def steps(self, question: str, thread_id: str = "default") -> list[dict]:
         """Run one turn node by node and report what each node changed (stream_mode='updates')."""

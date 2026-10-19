@@ -30,8 +30,10 @@ CREATE TABLE IF NOT EXISTS qa_log (
     total_ms       REAL,
     model          TEXT,
     prompt_tokens  INTEGER,
-    answer_tokens  INTEGER
+    answer_tokens  INTEGER,
+    guard          JSONB       -- what the guardrails blocked, fixed or flagged (okf_agent.guards)
 );
+ALTER TABLE qa_log ADD COLUMN IF NOT EXISTS guard JSONB;   -- tables made before the guardrails step
 """
 
 
@@ -44,14 +46,15 @@ def insert_qa_log(conn: psycopg.Connection, thread_id: str, agent: str, state: d
     row = conn.execute(
         """INSERT INTO qa_log (thread_id, agent, question, search_query, followup, answer, refused, cited,
                                bad_citations, passages, search_ms, generation_ms, total_ms, model,
-                               prompt_tokens, answer_tokens)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                               prompt_tokens, answer_tokens, guard)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
         (thread_id, agent, state.get("question"), state.get("search_query"), state.get("followup"),
          state.get("answer"), state.get("refused"),
          json.dumps([s["id"] for s in state.get("sources", [])]),
          json.dumps(state.get("bad_citations", [])),
          json.dumps([p["source"]["id"] for p in state.get("passages", [])]),
          t.get("search_ms"), t.get("generation_ms"), t.get("total_ms"),
-         llm.get("model"), llm.get("prompt_tokens"), llm.get("answer_tokens")),
+         llm.get("model"), llm.get("prompt_tokens"), llm.get("answer_tokens"),
+         json.dumps(state.get("guard") or {})),
     ).fetchone()
     return row[0]
