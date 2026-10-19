@@ -2,12 +2,10 @@
 
 Ask questions about five landmark AI papers and get cited answers, find newer papers on arXiv, and export the conversation as a report. Runs fully locally on a 6 GB laptop GPU.
 
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-agents-1C3C3C?logo=langchain&logoColor=white)
 ![A2A](https://img.shields.io/badge/A2A-agent--to--agent-6E40C9)
 ![MCP](https://img.shields.io/badge/MCP-tools-000000)
 ![Ollama](https://img.shields.io/badge/Ollama-qwen3%204B-000000?logo=ollama&logoColor=white)
-![Qdrant](https://img.shields.io/badge/Qdrant-hybrid%20search-DC244C?logo=qdrant&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-memory%20%2B%20logs-4169E1?logo=postgresql&logoColor=white)
 ![Guardrails AI](https://img.shields.io/badge/Guardrails%20AI-validators-FF6B00)
 ![Chainlit](https://img.shields.io/badge/Chainlit-UI-F80061)
