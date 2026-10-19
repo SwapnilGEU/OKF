@@ -156,6 +156,19 @@ def keyword_route(question: str, allowed: list[str]) -> list[str]:
     return [want] if want in allowed else allowed[:1]
 
 
+def without_blocked(messages) -> list:
+    """The chat minus the turns guard_in blocked (the blocked message and its fixed reply). A blocked turn
+    isn't part of the conversation: "And GPT-3.5?" after one still follows up on the question before it."""
+    out = []
+    for m in messages:
+        if m.type == "ai" and (m.additional_kwargs or {}).get("blocked"):
+            if out and out[-1].type == "human":
+                out.pop()                                    # its question goes too
+            continue
+        out.append(m)
+    return out
+
+
 def conversation_so_far(messages) -> list[dict]:
     """The router's chat as [{"q", "a"}], skipping direct replies (greetings), earlier report turns and turns
     where every agent failed (e.g. arXiv timed out): a failure message doesn't belong in a report."""
@@ -199,7 +212,7 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         allowed = list(directory.clients())
         last = state.get("last_route")
         llm_info = {"model": llm.name}
-        prev_q, _ = previous_turn(state["messages"])
+        prev_q, _ = previous_turn(without_blocked(state["messages"]))
         parts = {}
         if GREETING_RE.match(question):
             chosen, by = [], "rule-greeting"
@@ -275,7 +288,9 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         timings = {**state["timings"], **{f"{a}_ms": r["ms"] for a, r in replies.items()}}
         reply = AIMessage(content=text, additional_kwargs={"agent": agent_name, "route": state["route"],
                                                            "failed": failed, "blocked": state.get("blocked")})
-        return {"answer": text, "refused": bool(failed) or bool(state.get("blocked")), "last_route": state["route"],
+        blocked = bool(state.get("blocked"))
+        return {"answer": text, "refused": bool(failed) or blocked,
+                "last_route": state.get("last_route") if blocked else state["route"],   # blocked: keep the thread
                 "timings": timings,
                 "messages": [reply]}
 
