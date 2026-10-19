@@ -21,8 +21,8 @@ jobs:
     name: Lint + notebooks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Ruff (syntax errors, undefined names, unused code)
@@ -45,8 +45,8 @@ jobs:
       OKF_GUARD_JAILBREAK: "0"      # don't download the ML jailbreak detector
       LANGSMITH_TRACING: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -62,8 +62,8 @@ jobs:
     name: UI imports (own env)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Import ui/app.py with Chainlit 2.12 on Python 3.12, like start_backend.bat runs it
         working-directory: ui
         run: uv run --no-project --python 3.12 --with chainlit==2.12.0 python -c "import app; print('ok')"
