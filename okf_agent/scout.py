@@ -32,6 +32,7 @@ from .guards import clean_untrusted
 from .graph import looks_like_followup, previous_turn, text_of
 from .mcp_tools import call_tool
 from .state import AgentState
+from .streaming import generate
 
 SCOUT_NAME = "paper_scout"
 MAX_RESULTS = 6                 # papers shown to qwen
@@ -179,14 +180,15 @@ def build_scout_graph(tools, llm, log_conn=None, agent_name: str = SCOUT_NAME) -
         args.pop("date_from", None)
         return {"arxiv_args": args, "search_query": args["query"], "relaxed": True}
 
-    def summarize(state: ScoutState) -> dict:
+    def summarize(state: ScoutState, config) -> dict:
         if state.get("search_error"):
-            return {"answer": f"I couldn't search arXiv right now ({state['search_error']}). Please try again in a minute."}
+            return {"answer": f"I couldn't search arXiv right now ({state['search_error']}). Please try again in a minute.",
+                    "stream_id": None}
         if not state["passages"]:
-            return {"answer": NO_PAPERS}
+            return {"answer": NO_PAPERS, "stream_id": None}
         results = "\n\n".join(p["text"] for p in state["passages"])
-        reply = llm.complete(SUMMARY_PROMPT, f"Request: {state['question']}\n\nResults:\n\n{results}")
-        return {"answer": reply.text,
+        reply, stream_id = generate(llm, SUMMARY_PROMPT, f"Request: {state['question']}\n\nResults:\n\n{results}", config)
+        return {"answer": reply.text, "stream_id": stream_id,
                 "llm": {**state["llm"], "prompt_tokens": reply.prompt_tokens, "answer_tokens": reply.answer_tokens},
                 "timings": {**state["timings"], "generation_ms": reply.generation_ms}}
 
@@ -209,7 +211,8 @@ def build_scout_graph(tools, llm, log_conn=None, agent_name: str = SCOUT_NAME) -
         if sources:                                                       # links written by code, not by qwen
             text += "\n\nLinks:\n" + "\n".join(f"- {s['title']}: {s['url']}" for s in sources)
         refused = state["answer"].strip().startswith("No relevant papers") or bool(state.get("search_error"))
-        reply = AIMessage(content=text, additional_kwargs={"sources": sources, "agent": agent_name})
+        reply = AIMessage(content=text, id=state.get("stream_id"),       # streamed id: see okf_agent.streaming
+                          additional_kwargs={"sources": sources, "agent": agent_name})
         return {"sources": sources, "bad_citations": bad, "refused": refused, "messages": [reply]}
 
     def log(state: ScoutState, config) -> dict:

@@ -71,6 +71,11 @@ class TracedLLM:
         self._traced([{"role": "system", "content": system}, {"role": "user", "content": user}])
         return self._last
 
+    def stream(self, system: str, user: str):
+        # Streamed answers go through okf_agent.streaming.relay, a LangChain chat model, which LangSmith
+        # already traces as an LLM run (with the text). So no extra wrapping here.
+        return self._llm.stream(system, user)
+
     def health(self):
         return self._llm.health()
 

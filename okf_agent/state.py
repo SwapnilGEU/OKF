@@ -30,6 +30,7 @@ class AgentState(TypedDict, total=False):
     timings: dict              # milliseconds per step
     llm: dict                  # model name and token counts
     log_id: int | None         # row id in qa_log
+    stream_id: str | None      # id of the streamed answer message (the final message reuses it)
 
 
 class AgentReply(BaseModel):

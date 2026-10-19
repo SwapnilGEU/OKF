@@ -16,7 +16,10 @@ route     decides, in this order:
                previous message and who answered it, so it can tell "And GPT-3.5?" (same agent)
                from a new topic. (A word rule can't: "...newer papers on it?" has "it" but is new.)
             3. qwen's reply unusable          → short follow-up? same agent as last time : keyword rule
-ask_<x>   sends the message (or, when several agents are asked, only its part) to agent x over A2A. For a follow-up (same agent(s) as last turn) it reuses that
+ask_<x>   sends the message (or, when several agents are asked, only its part) to agent x over A2A.
+          With ONE agent it uses SendStreamingMessage and relays the agent's tokens as its own
+          (okf_agent.streaming), so a streaming client sees the answer being written. Two agents in
+          parallel would interleave their tokens, so then it waits for both (SendMessage). For a follow-up (same agent(s) as last turn) it reuses that
           agent's A2A conversation (contextId kept in the state), so the agent's own memory works;
           a new request starts a fresh conversation with the agent.
 direct    a code-written reply: what the system can do, built from the agents' cards
@@ -45,6 +48,7 @@ from .db import insert_qa_log
 from .graph import looks_like_followup, previous_turn, text_of
 from .guards import check_input
 from .state import AgentState
+from .streaming import relay
 
 ROUTER_NAME = "okf_router"
 SHORT_FOLLOWUP = 6
@@ -246,15 +250,23 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
         return [f"ask_{a}" for a in state["route"]] or ["direct"]
 
     def make_ask(agent: str):
-        def ask(state: RouterState) -> dict:
+        def ask(state: RouterState, config) -> dict:
             t0 = time.perf_counter()
             client = directory.clients()[agent]
             try:
                 # Continue the agent's conversation only for a follow-up of its last turn. A new request
                 # starts a fresh one, so the agent's own follow-up rule can't glue it to an old question.
                 context_id = state.get("contexts", {}).get(agent) if state["followup"] else None
-                r = client.send(state.get("parts", {}).get(agent) or state["question"], context_id=context_id)
-                reply = {"text": r.text if r.ok else f"{agent} couldn't answer: {r.text}", "state": r.state}
+                text = state.get("parts", {}).get(agent) or state["question"]
+                stream_id = None
+                if len(state["route"]) == 1:                     # one agent: stream its answer through
+                    stream = client.send_stream(text, context_id=context_id)
+                    stream_id = relay(stream, config, name=agent).id
+                    r = stream.reply
+                else:
+                    r = client.send(text, context_id=context_id)
+                reply = {"text": r.text if r.ok else f"{agent} couldn't answer: {r.text}", "state": r.state,
+                         "stream_id": stream_id if r.ok else None}
                 contexts = {agent: r.context_id}
             except Exception as exc:
                 reply = {"text": f"{agent} couldn't be reached ({type(exc).__name__}: {exc})", "state": "ERROR"}
@@ -286,8 +298,10 @@ def build_router_graph(directory: AgentDirectory, llm, log_conn=None, agent_name
                   if not replies.get(a, {}).get("state", "").endswith("COMPLETED")
                   or FAILURE_RE.match(replies.get(a, {}).get("text", ""))]     # completed, but only to say it failed
         timings = {**state["timings"], **{f"{a}_ms": r["ms"] for a, r in replies.items()}}
-        reply = AIMessage(content=text, additional_kwargs={"agent": agent_name, "route": state["route"],
-                                                           "failed": failed, "blocked": state.get("blocked")})
+        stream_id = replies.get(state["route"][0], {}).get("stream_id") if len(state["route"]) == 1 else None
+        reply = AIMessage(content=text, id=stream_id,              # streamed id: see okf_agent.streaming
+                          additional_kwargs={"agent": agent_name, "route": state["route"],
+                                             "failed": failed, "blocked": state.get("blocked")})
         blocked = bool(state.get("blocked"))
         return {"answer": text, "refused": bool(failed) or blocked,
                 "last_route": state.get("last_route") if blocked else state["route"],   # blocked: keep the thread

@@ -4,7 +4,8 @@
 
 prepare  read the question; is it a follow-up? (then search with the previous question added)
 search   call search_okf on the MCP server (retrieval only, no LLM)
-answer   qwen writes the answer from the passages: the ONE model call per question
+answer   qwen writes the answer from the passages: the ONE model call per question. Streamed token by
+         token (okf_agent.streaming): a client using A2A SendStreamingMessage sees it being written
 check    output guardrails (okf_agent.guards): made-up citations repaired or removed, numbers that aren't
          in the passages flagged; then which citations are real, did it refuse? append the reply to the chat
 log      one row in Postgres' qa_log
@@ -28,6 +29,7 @@ from .db import insert_qa_log
 from .guards import check_answer
 from .mcp_tools import call_tool
 from .state import AgentState
+from .streaming import generate
 
 AGENT_NAME = "okf_agent"
 
@@ -74,7 +76,7 @@ def build_graph(tools: dict, llm, log_conn=None, agent_name: str = AGENT_NAME) -
         return {"question": question, "followup": followup,
                 "search_query": f"{prev_q} {question}" if followup else question,
                 "previous": {"question": prev_q, "answer": prev_a} if followup else None,
-                "timings": {"started": time.time()}, "bad_citations": [], "log_id": None}
+                "timings": {"started": time.time()}, "bad_citations": [], "log_id": None, "stream_id": None}
 
     def search(state: AgentState) -> dict:
         t0 = time.perf_counter()
@@ -83,15 +85,15 @@ def build_graph(tools: dict, llm, log_conn=None, agent_name: str = AGENT_NAME) -
         return {"passages": passages,
                 "timings": {**state["timings"], "search_ms": round((time.perf_counter() - t0) * 1000, 1)}}
 
-    def answer(state: AgentState) -> dict:
+    def answer(state: AgentState, config) -> dict:
         context = "\n\n".join(p["text"] for p in state["passages"])        # the blocks, in order: same as okf.ask()
         user = user_message(state["question"], context)                    # the evaluated prompt
         prev = state.get("previous")
         if prev:                                                           # follow-up: remind the model of the last turn
             note = f"Earlier in this chat:\nQ: {prev['question']}\nA: {(prev['answer'] or '')[:800]}\n\n"
             user = user.replace("Question: ", note + "Question: ", 1)
-        reply = llm.complete(SYSTEM_PROMPT, user)
-        return {"answer": reply.text,
+        reply, stream_id = generate(llm, SYSTEM_PROMPT, user, config)       # streamed, returned whole
+        return {"answer": reply.text, "stream_id": stream_id,
                 "llm": {"model": llm.name, "prompt_tokens": reply.prompt_tokens, "answer_tokens": reply.answer_tokens},
                 "timings": {**state["timings"], "generation_ms": reply.generation_ms}}
 
@@ -104,8 +106,10 @@ def build_graph(tools: dict, llm, log_conn=None, agent_name: str = AGENT_NAME) -
         answer = guarded.text                                              # made-up citations fixed
         cited = cited_ids(answer, used)                                    # real citations, in context order
         sources = [p["source"] for p in state["passages"] if p["source"]["id"] in cited]
-        reply = AIMessage(content=answer, additional_kwargs={"sources": sources, "agent": agent_name,
-                                                             "guard": guarded.summary()})
+        # Same id as the streamed message: LangGraph then won't stream this (guarded) text a second time;
+        # it reaches the client as the task's final answer.
+        reply = AIMessage(content=answer, id=state.get("stream_id"),
+                          additional_kwargs={"sources": sources, "agent": agent_name, "guard": guarded.summary()})
         return {"answer": answer, "sources": sources, "bad_citations": bad, "refused": is_refusal(answer),
                 "guard": guarded.summary(), "messages": [reply]}          # add_messages APPENDS this to the chat
 

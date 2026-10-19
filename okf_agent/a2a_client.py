@@ -18,7 +18,9 @@ Only langgraph_card_url() knows LangGraph's URL layout.
 
 from __future__ import annotations
 
+import json
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import httpx
@@ -62,26 +64,83 @@ class A2AClient:
     def description(self) -> str:
         return self.card.get("description", "")
 
-    def send(self, text: str, context_id: str | None = None) -> A2AReply:
-        """Send one user message and wait for the finished task (SendMessage blocks by default)."""
+    @staticmethod
+    def _payload(method: str, text: str, context_id: str | None) -> dict:
         message = {"role": "ROLE_USER", "parts": [{"text": text}], "messageId": str(uuid.uuid4())}
         if context_id:
             message["contextId"] = context_id                 # continue that conversation
-        payload = {"jsonrpc": "2.0", "id": str(uuid.uuid4()), "method": "SendMessage",
-                   "params": {"message": message}}
-        body = self._http.post(self.url, json=payload).raise_for_status().json()
-        if "error" in body:
-            raise A2AError(f"{self.name}: {body['error'].get('message', body['error'])}")
-        task = body["result"].get("task", body["result"])     # v1.0 wraps the task in result.task
+        return {"jsonrpc": "2.0", "id": str(uuid.uuid4()), "method": method, "params": {"message": message}}
+
+    def _reply(self, result: dict) -> A2AReply:
+        task = result.get("task", result)                     # v1.0 wraps the task in result.task
         texts = [p["text"] for a in task.get("artifacts", []) for p in a.get("parts", []) if "text" in p]
         if not texts:              # a failed task has no artifact; the reason is in its status message
             status_msg = task["status"].get("message") or {}
             texts = [p["text"] for p in status_msg.get("parts", []) if "text" in p]
         return A2AReply(text="\n".join(texts), state=task["status"]["state"],
-                        context_id=task["contextId"], task_id=task["id"], raw=body["result"])
+                        context_id=task["contextId"], task_id=task["id"], raw=result)
+
+    def send(self, text: str, context_id: str | None = None) -> A2AReply:
+        """Send one user message and wait for the finished task (SendMessage blocks by default)."""
+        body = self._http.post(self.url, json=self._payload("SendMessage", text, context_id)).raise_for_status().json()
+        if "error" in body:
+            raise A2AError(f"{self.name}: {body['error'].get('message', body['error'])}")
+        return self._reply(body["result"])
+
+    def send_stream(self, text: str, context_id: str | None = None) -> "A2AStream":
+        """Like send(), but the answer arrives in pieces: iterate the result for text pieces as the agent
+        writes them; afterwards `.reply` is the finished task, same as send() returns."""
+        return A2AStream(self, self._payload("SendStreamingMessage", text, context_id))
 
     def close(self):
         self._http.close()
+
+
+class A2AStream:
+    """SendStreamingMessage: the server answers with server-sent events, one JSON-RPC result per
+    `data:` line (LangGraph's A2A server, checked by hand):
+        task             state SUBMITTED: the task id and contextId
+        status-update    state WORKING, message = the answer SO FAR (the whole text, not just the new piece)
+        artifact-update  the final answer (after the agent's check node: citations fixed etc.)
+        status-update    state COMPLETED (or FAILED), final: true
+    Iterating yields only the NEW text of each update; afterwards `.reply` is like send()'s result."""
+
+    def __init__(self, client: A2AClient, payload: dict):
+        self.client, self.payload = client, payload
+        self.reply: A2AReply | None = None
+
+    def __iter__(self) -> Iterator[str]:
+        so_far, final_text, state, task_id, context_id, failed_msg = "", None, "", "", "", ""
+        headers = {"Accept": "text/event-stream"}
+        with self.client._http.stream("POST", self.client.url, json=self.payload, headers=headers) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line.startswith("data:"):
+                    continue                                   # "event: message", ": heartbeat", blank lines
+                body = json.loads(line[5:])
+                if "error" in body:
+                    raise A2AError(f"{self.client.name}: {body['error'].get('message', body['error'])}")
+                result = body.get("result") or {}
+                event = result.get("task", result)
+                task_id = event.get("taskId") or event.get("id") or task_id
+                context_id = event.get("contextId") or context_id
+                kind = event.get("kind")
+                if kind == "artifact-update":
+                    final_text = "".join(p.get("text", "") for p in event["artifact"].get("parts", []))
+                elif kind in ("status-update", "task"):
+                    status = event.get("status") or {}
+                    state = status.get("state", state)
+                    text = "".join(p.get("text", "") for p in (status.get("message") or {}).get("parts", []))
+                    if state.endswith("WORKING") and text:
+                        if text.startswith(so_far):
+                            yield text[len(so_far):]            # just the new piece
+                        else:
+                            yield "\n\n" + text                # a different message started
+                        so_far = text
+                    elif text:
+                        failed_msg = text                      # FAILED: the reason
+        self.reply = A2AReply(text=final_text if final_text is not None else (failed_msg or so_far), state=state,
+                              context_id=context_id, task_id=task_id)
 
 
 def langgraph_assistant_id(base_url: str, graph: str) -> str:
@@ -101,4 +160,4 @@ def langgraph_card_url(base_url: str, graph: str) -> str:
     return f"{base_url}/.well-known/agent-card.json?assistant_id={langgraph_assistant_id(base_url, graph)}"
 
 
-__all__ = ["A2AClient", "A2AReply", "A2AError", "langgraph_card_url", "langgraph_assistant_id"]
+__all__ = ["A2AClient", "A2AReply", "A2AStream", "A2AError", "langgraph_card_url", "langgraph_assistant_id"]

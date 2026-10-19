@@ -34,8 +34,8 @@ start "arXiv MCP server :8001" cmd /k "set TRANSPORT=http&& set PORT=8001&& uvx 
 start "OKF agent server :2024" cmd /k langgraph dev --no-browser --port 2024 --n-jobs-per-worker 4
 REM   4. chat UI (Chainlit) http://localhost:8501: its own small env via uvx (like the arXiv server), so
 REM      Chainlit's dependencies never touch the okf env. The first start downloads it (~1 min); it opens
-REM      your browser when ready.
-start "OKF UI :8501" cmd /k "cd /d %~dp0ui && uvx --from chainlit==2.12.0 chainlit run app.py --port 8501"
+REM      your browser when ready. --python 3.12: on Python 3.14 Chainlit's nest_asyncio breaks anyio (NoEventLoopError).
+start "OKF UI :8501" cmd /k "cd /d %~dp0ui && uvx --python 3.12 --from chainlit==2.12.0 chainlit run app.py --port 8501"
 
 echo Started. Wait for "ready" (MCP), "Uvicorn running on http://127.0.0.1:8001" (arXiv; the first start
 echo downloads it, ~1 min), "API: http://127.0.0.1:2024" (agents) and "Your app is available at http://localhost:8501" (UI).
