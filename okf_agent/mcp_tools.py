@@ -101,6 +101,19 @@ class PersistentMCP:
             return asyncio.ProactorEventLoop()
         return asyncio.new_event_loop()
 
+    def _run_loop(self):
+        """Body of the background thread. `langgraph dev` watches every event loop for blocking calls
+        (file checks, starting processes...) because they would freeze the SERVER's loop. This loop is
+        our own: it only talks to the MCP child process, and starting that process needs exactly such
+        calls (on Windows, finding npx.cmd). So the watchdog is switched off for THIS thread only."""
+        try:
+            from blockbuster.blockbuster import _skip     # the watchdog's per-thread "skip" switch
+            _skip.value = True
+        except Exception:                                  # not running under langgraph dev: nothing to do
+            pass
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_forever()
+
     async def _open(self) -> dict:
         from contextlib import AsyncExitStack
 
@@ -132,7 +145,7 @@ class PersistentMCP:
                     self.log_path = Path(tempfile.gettempdir()) / f"okf-mcp-{self.name}.log"
                     self._errlog = open(self.log_path, "a", encoding="utf-8")
                 self._loop = self._new_loop()
-                threading.Thread(target=self._loop.run_forever, name=f"mcp-{self.name}", daemon=True).start()
+                threading.Thread(target=self._run_loop, name=f"mcp-{self.name}", daemon=True).start()
                 try:
                     self._tools = asyncio.run_coroutine_threadsafe(self._open(), self._loop).result(timeout)
                 except Exception:
