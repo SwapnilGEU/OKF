@@ -1,0 +1,31 @@
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # to create the release
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - name: Version in pyproject.toml must match the tag
+        run: |
+          VERSION=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          if [ "v$VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} but pyproject.toml says $VERSION"; exit 1
+          fi
+      - name: Build wheel + sdist
+        run: uv build
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
